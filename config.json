@@ -1,0 +1,44 @@
+{
+	"name": "BOADICEA CanRisk Data Pull",
+
+	"namespace": "Vanderbilt\\BoadiceaCanrisk",
+
+	"description": "Sends cancer risk data to canrisk API and saves cancer risk info back to REDCap",
+
+    "authors": [
+        {
+            "name": "Kyle McGuffin",
+            "email": "datacore@vumc.org",
+			"institution": "Vanderbilt University Medical Center"
+        }
+    ],
+	
+	"permissions": [
+	  "redcap-save-record"
+	],
+
+  	"links" : {
+	  "project": [
+		{
+		  "url":"test.php",
+		  "icon":"",
+		  "name":"Test"
+		}
+	  ],
+	  "control-center": [
+	  ]
+	},
+
+	"project-settings": [
+	  {
+		"key": "auth-token",
+		"name": "Site Auth Token",
+		"type": "text"
+	  },
+	  {
+		"key": "api-url",
+		"name": "URL for canrisk API",
+		"type": "text"
+	  }
+	]
+}
