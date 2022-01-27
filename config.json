@@ -14,7 +14,7 @@
     ],
 	
 	"permissions": [
-	  "redcap-save-record"
+	  "redcap_save_record"
 	],
 
   	"links" : {
