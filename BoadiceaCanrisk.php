@@ -12,7 +12,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			"records" => $record,
 			"return_format" => "json"
 		]);
-		error_log("Starting BOADICEA");
+		
 		$recordData = json_decode($recordData,true);
 		$dob = false;
 		$menarche = false;
@@ -164,15 +164,26 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
 XXXX	pa	0	m21	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
 XXXX	ma	0	f21	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
-XXXX	me	1	ch1	m21	f21	F	0	0	35 1986	0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0";
+XXXX	me	1	ch1	m21	f21	F	0	0	35 1986 0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0";
 		
 		$dataString = $this->compressRecordData($dob, $menarche, $parity, $firstBirth, $ocUse,
 												$mhtUse, $weight, $bmi, $alcohol, $height,
 												$history);
-		error_log("Have Data String\n".$dataString);
+		
 		if($dataString !== false) {
-			$response = $this->sendRequest($dataString);
-			error_log(var_export($response,true));
+			$responseJson = $this->sendRequest($dataString);
+			
+			$response = json_decode($responseJson, true);
+			$foundError = false;
+			foreach($response as $responseKey => $responseRow) {
+				if(strpos($responseKey,"Error") !== false) {
+					$foundError = true;
+					error_log("Found Errror: ".var_export($response["Cancer Error"],true));
+				}
+			}
+			if(!$foundError) {
+				error_log(var_export($response,true));
+			}
 		}
 		else {
 			error_log("Failed to send");
@@ -216,6 +227,7 @@ XXXX	me	1	ch1	m21	f21	F	0	0	35 1986	0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	
 		$pegigreeData = str_replace("\n","\\n",$pegigreeData);
 		$pegigreeData = str_replace("\t","\\t",$pegigreeData);
 		
+		## TODO user_id needs to be project setting
 		$data = '{"mut_freq":"UK","cancer_rates":"UK","user_id":"mcguffk","pedigree_data":"'.$pegigreeData.'"}';
 		
 		$apiUrl = $this->getProjectSetting("api-url");
