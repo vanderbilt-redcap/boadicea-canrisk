@@ -270,6 +270,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
 			
+			## TODO, should be able to calc first birth from MeTree data (based on mother id and age)
+			
 			## TODO Haven't found any BRCA or other genetic testing examples in MeTree test data
 			
 			## TODO Need to figure out what to do if fathers/mothers aren't specified in the data (Canrisk doesn't allow this)
