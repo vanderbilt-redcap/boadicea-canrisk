@@ -159,12 +159,144 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 			}
 		}
+		
+		$meTreeJson = file_get_contents(__DIR__."/metree.json");
+		$meTreeJson = json_decode($meTreeJson,true);
+		
+		$pedigreeData = [];
+		$familyId = substr(reset($meTreeJson)["uuid"],0,7);
+		
+		foreach($meTreeJson as $thisRow) {
+			$thisPerson = [
+				"FamId" => $familyId,
+				"Name" => 0,
+				"Target" => 0,
+				"IndivID" => 0,
+				"FathID" => 0,
+				"MothID" => 0,
+				"Sex" => 0,
+				"MZtwin" => 0,
+				"Dead" => 0,
+				"Age" => 0,
+				"Yob" => 0,
+				"BC1" => 0,
+				"BC2" => 0,
+				"OC" => 0,
+				"PRO" => 0,
+				"PAN" => 0,
+				"Ashkn" => 0,
+				"BRCA1" => "0:0",
+				"BRCA2" => "0:0",
+				"PALB2" => "0:0",
+				"ATM" => "0:0",
+				"CHEK2" => "0:0",
+				"BARD1" => "0:0",
+				"RAD51C" => "0:0",
+				"BRIP1" => "0:0",
+				"ER:PR:HER2:CK14:CK56" => [0,0,0,0,0]
+			];
+			
+			if($thisRow["firstName"] == "") {
+				$thisPerson["Name"] = substr($thisRow["uuid"],0,7);
+			}
+			else {
+				$thisPerson["Name"] = substr($thisRow["firstName"],0,7);
+			}
+			
+			if($thisRow["relation"] == "SELF") {
+				$thisPerson["Target"] = 1;
+			}
+			
+			$thisPerson["IndivID"] = substr($thisRow["uuid"],0,7);
+			
+			if($thisRow["father"] != "") {
+				$thisPerson["FathID"] = substr($thisRow["father"],0,7);
+			}
+			
+			if($thisRow["mother"] != "") {
+				$thisPerson["MothID"] = substr($thisRow["mother"],0,7);
+			}
+			
+			$thisPerson["Sex"] = ($thisRow["gender"] == "female" ? "F" : "M");
+			
+			## Check if person is identical twin and mark MZtwin as 1
+			if(is_array($thisRow["multiple"])) {
+				foreach($thisRow["multiple"]["identical"] as $thisTwin) {
+					if($thisTwin == $thisRow["uuid"]) {
+						$thisPerson["MZtwin"] = 1;
+					}
+				}
+			}
+			
+			if($thisRow["living"] == "Deceased") {
+				$thisPerson["Dead"] = 1;
+			}
+			
+			if($thisRow["age"] != "") {
+				$thisPerson["Age"] = $thisRow["age"];
+			}
+			
+			if($thisRow["birthDate"] != "") {
+				$thisPerson["Yob"] = substr($thisRow["birthDate"],0,4);
+			}
+			
+			foreach($thisRow["conditions"] as $thisCondition) {
+				$ageAtCondition = $thisCondition["age"];
+				if($thisCondition["ageUnknown"]) {
+					$ageAtCondition = "AU";
+				}
+				
+				if($thisCondition["id"] == "breast_cancer") {
+					if($thisPerson["BC1"] == 0) {
+						$thisPerson["BC1"] = $ageAtCondition;
+					}
+					elseif($thisPerson["BC2"] == 0) {
+						$thisPerson["BC2"] = $ageAtCondition;
+					}
+				}
+				
+				if($thisCondition["id"] == "ovarian_cancer") {
+					$thisPerson["OC"] = $ageAtCondition;
+				}
+				
+				if($thisCondition["id"] == "prostate_cancer") {
+					$thisPerson["PRO"] = $ageAtCondition;
+				}
+				
+				if($thisCondition["id"] == "pancreatic_cancer") {
+					$thisPerson["PAN"] = $ageAtCondition;
+				}
+			}
+			
+			$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
+			
+			## TODO Haven't found any BRCA or other genetic testing examples in MeTree test data
+			
+			## TODO Need to figure out what to do if fathers/mothers aren't specified in the data (Canrisk doesn't allow this)
+			
+			$pedigreeData[] = $thisPerson;
+		}
+		
+		$headers = [
+			"FamID","Name","Target","IndivID","FathID",
+			"MothID","Sex","MZtwin","Dead","Age","Yob",
+			"BC1","BC2","OC","PRO","PAN","Ashkn","BRCA1",
+			"BRCA2","PALB2","ATM","CHEK2","RAD51D","RAD51C",
+			"BRIP1","ER:PR:HER2:CK14:CK56"
+		];
+		
+		$history = implode("\t",$headers);
+		foreach($pedigreeData as $thisPerson) {
+			$history .= "\n".implode("\t",$thisPerson);
+		}
+		error_log($history);
+		
 		## Temp data section since some things are broken/missing on survey
 		$firstBirth = 25;
-		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
-XXXX	pa	0	m21	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
-XXXX	ma	0	f21	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
-XXXX	me	1	ch1	m21	f21	F	0	0	35 1986 0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0";
+//		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
+//XXXX	pa	0	m21	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+//XXXX	ma	0	f21	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+//XXXX	me	1	ch1	m21	f21	F	0	0	35 1986 0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0";
 		
 		$dataString = $this->compressRecordData($dob, $menarche, $parity, $firstBirth, $ocUse,
 												$mhtUse, $weight, $bmi, $alcohol, $height,
@@ -178,7 +310,7 @@ XXXX	me	1	ch1	m21	f21	F	0	0	35 1986 0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	
 			foreach($response as $responseKey => $responseRow) {
 				if(strpos($responseKey,"Error") !== false) {
 					$foundError = true;
-					error_log("Found Errror: ".var_export($response["Cancer Error"],true));
+					error_log("Found Errror: ".var_export($responseRow,true));
 				}
 			}
 			if(!$foundError) {
