@@ -18,7 +18,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$menarche = false;
 		$parity = false;
 		$firstBirth = false;
+		$tubalLigation = false;
+		$endometriosis = false;
 		$ocUse = false;
+		$prsBc = false;
 		$mhtUse = false;
 		$weight = false;
 		$bmi = false;
@@ -36,10 +39,11 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			if($thisEvent["how_many_children_do_you_h"] != "") {
 				$parity = $thisEvent["how_many_children_do_you_h"];
 			}
-			if($thisEvent["date_of_birth_child"] != "") {
-				if($dob !== false) {
-					$firstBirth = floor(datediff($dob,$thisEvent["date_of_birth_child"],"y"));
-				}
+			if($thisEvent["tubal_ligation"] != "") {
+				$tubalLigation = ($thisEvent["tubal_ligation"] == "1" ? "1" : "0");
+			}
+			if($thisEvent["diagnosed_with_endometriosis"] != "") {
+				$endometriosis = ($thisEvent["diagnosed_with_endometriosis"] == 1 ? "1" : "0");
 			}
 			if($thisEvent["taken_oral_contraceptive_pill"] != "") {
 				if($thisEvent["taken_oral_contraceptive_pill"] == "2") {
@@ -166,35 +170,44 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$pedigreeData = [];
 		$familyId = substr(reset($meTreeJson)["uuid"],0,7);
 		
+		$alternateParents = [];
+		$currentAltId = 0;
+		
+		$defaultPerson = [
+			"FamId" => $familyId,
+			"Name" => 0,
+			"Target" => 0,
+			"IndivID" => 0,
+			"FathID" => 0,
+			"MothID" => 0,
+			"Sex" => 0,
+			"MZtwin" => 0,
+			"Dead" => 0,
+			"Age" => 0,
+			"Yob" => 0,
+			"BC1" => 0,
+			"BC2" => 0,
+			"OC" => 0,
+			"PRO" => 0,
+			"PAN" => 0,
+			"Ashkn" => 0,
+			"BRCA1" => "0:0",
+			"BRCA2" => "0:0",
+			"PALB2" => "0:0",
+			"ATM" => "0:0",
+			"CHEK2" => "0:0",
+			"BARD1" => "0:0",
+			"RAD51C" => "0:0",
+			"BRIP1" => "0:0",
+			"ER:PR:HER2:CK14:CK56" => [0,0,0,0,0]
+		];
+		
 		foreach($meTreeJson as $thisRow) {
-			$thisPerson = [
-				"FamId" => $familyId,
-				"Name" => 0,
-				"Target" => 0,
-				"IndivID" => 0,
-				"FathID" => 0,
-				"MothID" => 0,
-				"Sex" => 0,
-				"MZtwin" => 0,
-				"Dead" => 0,
-				"Age" => 0,
-				"Yob" => 0,
-				"BC1" => 0,
-				"BC2" => 0,
-				"OC" => 0,
-				"PRO" => 0,
-				"PAN" => 0,
-				"Ashkn" => 0,
-				"BRCA1" => "0:0",
-				"BRCA2" => "0:0",
-				"PALB2" => "0:0",
-				"ATM" => "0:0",
-				"CHEK2" => "0:0",
-				"BARD1" => "0:0",
-				"RAD51C" => "0:0",
-				"BRIP1" => "0:0",
-				"ER:PR:HER2:CK14:CK56" => [0,0,0,0,0]
-			];
+			$thisPerson = [];
+			
+			foreach($defaultPerson as $thisField => $thisValue) {
+				$thisPerson[$thisField] = $thisValue;
+			}
 			
 			if($thisRow["firstName"] == "") {
 				$thisPerson["Name"] = substr($thisRow["uuid"],0,7);
@@ -215,6 +228,26 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			if($thisRow["mother"] != "") {
 				$thisPerson["MothID"] = substr($thisRow["mother"],0,7);
+			}
+			
+			## If father missing
+			if($thisPerson["MothID"] !== 0 && $thisPerson["FathID"] === 0) {
+				if(!array_key_exists($thisPerson["MothID"],$alternateParents)) {
+					$alternateParents[$thisPerson["MothID"]] = "AFATH".$currentAltId;
+					$currentAltId++;
+				}
+				
+				$thisPerson["FathID"] = $alternateParents[$thisPerson["MothID"]];
+			}
+			
+			## If mother missing
+			if($thisPerson["MothID"] === 0 && $thisPerson["FathID"] !== 0) {
+				if(!array_key_exists($thisPerson["FathID"],$alternateParents)) {
+					$alternateParents[$thisPerson["FathID"]] = "AMOTH".$currentAltId;
+					$currentAltId++;
+				}
+				
+				$thisPerson["MothID"] = $alternateParents[$thisPerson["FathID"]];
 			}
 			
 			$thisPerson["Sex"] = ($thisRow["gender"] == "female" ? "F" : "M");
@@ -268,13 +301,41 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 			}
 			
+			if(is_array($thisRow["ethnicity"])) {
+				foreach($thisRow["ethnicity"] as $thisEthnicity) {
+					if($thisEthnicity == "Ashkenazi Jewish") {
+						$thisPerson["Ashkn"] = 1;
+					}
+				}
+			}
+			
 			$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
 			
 			## TODO, should be able to calc first birth from MeTree data (based on mother id and age)
 			
 			## TODO Haven't found any BRCA or other genetic testing examples in MeTree test data
 			
-			## TODO Need to figure out what to do if fathers/mothers aren't specified in the data (Canrisk doesn't allow this)
+			$pedigreeData[] = $thisPerson;
+		}
+		
+		foreach($alternateParents as $thisParent) {
+			$thisPerson = [];
+			
+			foreach($defaultPerson as $thisField => $thisValue) {
+				$thisPerson[$thisField] = $thisValue;
+			}
+			
+			$thisPerson["IndivID"] = $thisParent;
+			$thisPerson["Name"] = $thisParent;
+			
+			if(substr($thisParent,0,5) == "AMOTH") {
+				$thisPerson["Sex"] = "F";
+			}
+			else {
+				$thisPerson["Sex"] = "M";
+			}
+			
+			$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
 			
 			$pedigreeData[] = $thisPerson;
 		}
