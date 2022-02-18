@@ -27,7 +27,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$bmi = false;
 		$alcohol = false;
 		$height = false;
-		$history = false;
 		
 		foreach($recordData as $thisEvent) {
 			if($thisEvent["date_of_birth"] != "") {
@@ -40,10 +39,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$parity = $thisEvent["how_many_children_do_you_h"];
 			}
 			if($thisEvent["tubal_ligation"] != "") {
-				$tubalLigation = ($thisEvent["tubal_ligation"] == "1" ? "1" : "0");
+				$tubalLigation = ($thisEvent["tubal_ligation"] == "1" ? "Y" : "N");
 			}
 			if($thisEvent["diagnosed_with_endometriosis"] != "") {
-				$endometriosis = ($thisEvent["diagnosed_with_endometriosis"] == 1 ? "1" : "0");
+				$endometriosis = ($thisEvent["diagnosed_with_endometriosis"] == 1 ? "Y" : "N");
 			}
 			if($thisEvent["taken_oral_contraceptive_pill"] != "") {
 				if($thisEvent["taken_oral_contraceptive_pill"] == "2") {
@@ -101,12 +100,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			if($thisEvent["height_feet"] != "") {
 				$height = $thisEvent["height_feet"] * 12;
 				$height += (int)$thisEvent["height_inches"];
-				$height *= 0.0254;
+				$height *= 2.54;
+				error_log("Height: ".$height);
 			}
 			
-			if($height !== false && $weight !== false) {
-				$bmi = round($weight / $height / $height * 10) / 10;
-				$height = round($height * 100);
+			if($height !== false && $weight !== false && $bmi === false) {
+				## Convert height to meters and get BMI to one decimal place
+				$bmi = round($weight / ($height / 100) / ($height / 100) * 10 ) / 10;
 			}
 			
 			if($thisEvent["drink_containing_alcohol"] != "") {
@@ -218,6 +218,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			if($thisRow["relation"] == "SELF") {
 				$thisPerson["Target"] = 1;
+				$thisPerson["BRCA1"] = "S:N";
+				$thisPerson["BRCA2"] = "S:N";
+				$thisPerson["PALB2"] = "S:N";
+				$thisPerson["ATM"] = "S:N";
 			}
 			
 			$thisPerson["IndivID"] = substr($thisRow["uuid"],0,7);
@@ -364,8 +368,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		foreach($pedigreeData as $thisPerson) {
 			$history .= "\n".implode("\t",$thisPerson);
 		}
-		error_log($history);
-		
+		$history = "##FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
+41ebc07	Aundrea	1	41ebc07	e4a2c9a	586ec09	F	0	0	57	1963	16	0	16	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0
+41ebc07	e4a2c9a	0	e4a2c9a	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+41ebc07	586ec09	0	586ec09	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0";
 		## Temp data section since some things are broken/missing on survey
 //		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
 //XXXX	pa	0	m21	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
@@ -374,8 +380,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		$dataString = $this->compressRecordData($dob, $menarche, $parity, $firstBirth, $ocUse,
 												$mhtUse, $weight, $bmi, $alcohol, $height,
-												$history);
+												$tubalLigation, $endometriosis, $history);
 		
+		error_log($dataString);
 		if($dataString !== false) {
 			$responseJson = $this->sendRequest($dataString);
 			
@@ -400,7 +407,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	
 	public function compressRecordData($dob, $menarche, $parity, $firstBirth, $ocUse,
 									   $mhtUse, $weight, $bmi, $alcohol, $height,
-										$history) {
+										$tubalLigation, $endometriosis, $history) {
 		if($dob === false || $menarche === false || $parity === false || $weight === false ||
 				$height === false || $alcohol === false || $history === false) {
 			return false;
@@ -421,6 +428,12 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		}
 		if($mhtUse) {
 			$dataString .= "##MHT_use".$mhtUse."\n";
+		}
+		if($tubalLigation) {
+			$dataString .= "##TL=".$tubalLigation."\n";
+		}
+		if($endometriosis) {
+			$dataString .= "##Endo=".$endometriosis."\n";
 		}
 		
 		$dataString .= "##".$history."\n";
