@@ -93,6 +93,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 						break;
 				}
 			}
+			
 			if($thisEvent["current_weight"] != "") {
 				$weight = $thisEvent["current_weight"];
 				$weight /= 2.2;
@@ -101,12 +102,25 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$height = $thisEvent["height_feet"] * 12;
 				$height += (int)$thisEvent["height_inches"];
 				$height *= 2.54;
-				error_log("Height: ".$height);
 			}
 			
 			if($height !== false && $weight !== false && $bmi === false) {
 				## Convert height to meters and get BMI to one decimal place
 				$bmi = round($weight / ($height / 100) / ($height / 100) * 10 ) / 10;
+				
+				## If age less than 20, calc BMI percentile and flag if above 85%
+				$bmi85Level = [];
+				$f = fopen(__DIR__."/bmi_table_cdc.csv","r");
+				$headers = fgetcsv($f);
+				
+				while($row = fgetcsv($f)) {
+					$bmi85Level[$row[0]][$row[1]] = $row[11];
+				}
+				
+				$ageMonthsCalc = datediff($dob,date("Y-m-d"),"M");
+				if($bmi85Level[2][floor($ageMonthsCalc)] <= $bmi) {
+					## TODO flag as exceeding 85 percentile for under 20
+				}
 			}
 			
 			if($thisEvent["drink_containing_alcohol"] != "") {
@@ -368,8 +382,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		foreach($pedigreeData as $thisPerson) {
 			$history .= "\n".implode("\t",$thisPerson);
 		}
-		$history = "##FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
-41ebc07	Aundrea	1	41ebc07	e4a2c9a	586ec09	F	0	0	57	1963	16	0	16	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0
+		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
+41ebc07	Aundrea	1	41ebc07	e4a2c9a	586ec09	F	0	0	57	1963	0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0
 41ebc07	e4a2c9a	0	e4a2c9a	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
 41ebc07	586ec09	0	586ec09	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0";
 		## Temp data section since some things are broken/missing on survey
@@ -427,7 +441,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$dataString .= "##OC_use=".$ocUse."\n";
 		}
 		if($mhtUse) {
-			$dataString .= "##MHT_use".$mhtUse."\n";
+			$dataString .= "##MHT_use=".$mhtUse."\n";
 		}
 		if($tubalLigation) {
 			$dataString .= "##TL=".$tubalLigation."\n";
