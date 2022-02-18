@@ -228,6 +228,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			if($thisRow["mother"] != "") {
 				$thisPerson["MothID"] = substr($thisRow["mother"],0,7);
+				
+				## If this is a child of the main person
+				if($thisPerson["MothID"] == $thisPerson["FamID"] && $thisPerson["birthDate"]) {
+					if($firstBirth === false || strtotime($thisRow["birthDate"]) < $firstBirth) {
+						$firstBirth = strtotime($thisRow["birthDate"]);
+					}
+				}
 			}
 			
 			## If father missing
@@ -311,7 +318,12 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
 			
-			## TODO, should be able to calc first birth from MeTree data (based on mother id and age)
+			## Calc age at first birth by comparing oldest child DOB to person DOB
+			if($firstBirth) {
+				$dobTs = strtotime($dob);
+				
+				$firstBirth = floor(($firstBirth - $dobTs) / 365.25 / 24 / 60 / 60);
+			}
 			
 			## TODO Haven't found any BRCA or other genetic testing examples in MeTree test data
 			
@@ -355,7 +367,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		error_log($history);
 		
 		## Temp data section since some things are broken/missing on survey
-		$firstBirth = 25;
 //		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
 //XXXX	pa	0	m21	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
 //XXXX	ma	0	f21	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
