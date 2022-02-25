@@ -348,6 +348,36 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$pedigreeData[] = $thisPerson;
 			}
 			
+			## Parse Invitae data and add genetic risk factors
+			$geneMappings = [
+				"NM_007294.3" => "BRCA1",
+				"NM_000059.3" => "BRCA2",
+				"NM_024675.3" => "PALB2",
+				"NM_000051.3" => "ATM",
+				"NM_007194.3" => "CHEK2",
+				"NM_002878.3" => "RAD51D",
+				"NM_058216.2" => "RAD51C",
+				"NM_032043.2" => "BRIP1",
+			];
+			
+			$invitaeReportJson = file_get_contents(__DIR__."invitae.json");
+			$invitaeReport = json_decode($invitaeReportJson,true);
+			
+			foreach($invitaeReport["Orders"][0]["Results"] as $thisResult) {
+				if($thisResult["ValueType"] == "Coded Entry" && array_key_exists($thisResult["Value"],$geneMappings)) {
+					$geneValue = $geneMappings[$thisResult["Value"]];
+					
+					$thisPerson[$geneValue] = "T:P";
+				}
+			}
+			
+			## These seem to not be in any of the reports
+//			"" => "ER",
+//				"" => "PR",
+//				"" => "HER2",
+//				"" => "CK14",
+//				"" => "CK56",
+			
 			$headers = [
 				"FamID","Name","Target","IndivID","FathID",
 				"MothID","Sex","MZtwin","Dead","Age","Yob",
