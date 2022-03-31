@@ -51,6 +51,93 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		return [$age, $dob];
 	}
 	
+	## Only use the instance with [metree_import_complete] == 2
+	public function findCompletedMeTree($project_id, $record) {
+		$recordData = $this->getRecordData($project_id, $record);
+		$meTreeFile = false;
+		
+		foreach($recordData as $thisEvent) {
+			if($thisEvent["metree_import_complete"] == "2") {
+				$meTreeFile = (int)$thisEvent["metree_import_json_file"];
+			}
+		}
+		
+		$meTreeData = false;
+		
+		if($meTreeFile) {
+			$q = $this->query("SELECT *
+					FROM redcap_edocs_metadata
+					WHERE edoc_id = ?
+						AND project_id = ?",
+					[$meTreeFile,$project_id]);
+			
+			while($row = db_fetch_assoc($q)) {
+				$fileName = $row["stored_name"];
+				$meTreeData = file_get_contents(EDOC_PATH.$fileName);
+			}
+		}
+		
+		return $meTreeData;
+	}
+	
+	## Only use the instance with [invitae_import_complete] == 2
+	public function findCompletedInvitae($project_id, $record) {
+		$recordData = $this->getRecordData($project_id, $record);
+		$invitaeFile = false;
+		
+		foreach($recordData as $thisEvent) {
+			if($thisEvent["invitae_import_complete"] == "2") {
+				$invitaeFile = (int)$thisEvent["invitae_import_json_file"];
+			}
+		}
+		
+		$invitaeData = false;
+		
+		if($invitaeFile) {
+			$q = $this->query("SELECT *
+					FROM redcap_edocs_metadata
+					WHERE edoc_id = ?
+						AND project_id = ?",
+				[$invitaeFile,$project_id]);
+			
+			while($row = db_fetch_assoc($q)) {
+				$fileName = $row["stored_name"];
+				$invitaeData = file_get_contents(EDOC_PATH.$fileName);
+			}
+		}
+		
+		return $invitaeData;
+	}
+	
+	## Only use the instance with [broad_ordering_complete] == 2
+	public function findCompletedBroad($project_id, $record) {
+		$recordData = $this->getRecordData($project_id, $record);
+		$broadFile = false;
+		
+		foreach($recordData as $thisEvent) {
+			if($thisEvent["broad_ordering_complete"] == "2") {
+				$broadFile = (int)$thisEvent["broad_import_json_file"];
+			}
+		}
+		
+		$broadData = false;
+		
+		if($broadFile) {
+			$q = $this->query("SELECT *
+					FROM redcap_edocs_metadata
+					WHERE edoc_id = ?
+						AND project_id = ?",
+				[$broadFile,$project_id]);
+			
+			while($row = db_fetch_assoc($q)) {
+				$fileName = $row["stored_name"];
+				$broadData = file_get_contents(EDOC_PATH.$fileName);
+			}
+		}
+		
+		return $broadData;
+	}
+	
 	public function runBoadiceaPush($project_id, $record) {
 		$recordData = $this->getRecordData($project_id,$record);
 		
@@ -185,10 +272,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 		}
 		
-		## TODO switch to pulling edocs from [metree_import_complete] field
-		## Only use the instance with [metree_import_complete] == 2
 		
 		$meTreeJson = file_get_contents(__DIR__."/metree.json");
+		$meTreeJson = $this->findCompletedMeTree($project_id, $record);)
 		$meTreeJson = json_decode($meTreeJson,true);
 		
 		$pedigreeData = [];
@@ -395,6 +481,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		## TODO Switch to using edoc [invitae_import_json_file]
 		## Only use the instance with [invitae_import_complete] == 2
 		$invitaeReportJson = file_get_contents(__DIR__."invitae.json");
+		$invitaeReportJson = $this->findCompletedInvitae($project_id,$record);
 		$invitaeReport = json_decode($invitaeReportJson,true);
 		
 		foreach($invitaeReport["Orders"][0]["Results"] as $thisResult) {
