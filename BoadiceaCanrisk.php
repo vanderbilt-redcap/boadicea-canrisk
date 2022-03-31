@@ -64,7 +64,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$mhtUse = false;
 		$alcohol = false;
 		
-		list($height, $weight, $bmi) = $this->pullHeightWeightBmi($recordData);
+		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
 		list($ageCurrent,$dob) = $this->getPatientAgeAndDOB($recordData);
 		
 		foreach($recordData as $thisEvent) {
@@ -434,13 +434,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		//XXXX	ma	0	f21	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
 		//XXXX	me	1	ch1	m21	f21	F	0	0	35 1986 0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0";
 		
-		$dataString = $this->compressRecordData($dob, $menarche, $parity, $firstBirth, $ocUse,
+		$dataString = $this->compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
 			$mhtUse, $weight, $bmi, $alcohol, $height,
 			$tubalLigation, $endometriosis, $history);
 		
 		error_log($dataString);
 		if($dataString !== false) {
-			$responseJson = $this->sendRequest($dataString);
+			$responseJson = $this->sendBoadiceaRequest($dataString);
 			
 			$response = json_decode($responseJson, true);
 			$foundError = false;
@@ -461,9 +461,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		## Do something to save the response to the record
 	}
 	
-	public function compressRecordData($dob, $menarche, $parity, $firstBirth, $ocUse,
-									   $mhtUse, $weight, $bmi, $alcohol, $height,
-										$tubalLigation, $endometriosis, $history) {
+	public function compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
+												  $mhtUse, $weight, $bmi, $alcohol, $height,
+												  $tubalLigation, $endometriosis, $history) {
 		if($dob === false || $menarche === false || $parity === false || $weight === false ||
 				$height === false || $alcohol === false || $history === false) {
 			return false;
@@ -497,7 +497,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		return $dataString;
 	}
 	
-	public function sendRequest($pegigreeData) {
+	public function sendBoadiceaRequest($pegigreeData) {
 		$pegigreeData = str_replace("\r\n","\\n",$pegigreeData);
 		$pegigreeData = str_replace("\n","\\n",$pegigreeData);
 		$pegigreeData = str_replace("\t","\\t",$pegigreeData);
@@ -531,7 +531,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	public function calcJuvenileBmiPercentile($project_id, $record) {
 		$recordData = $this->getRecordData($project_id,$record);
 		
-		list($height, $weight, $bmi) = $this->pullHeightWeightBmi($recordData);
+		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
 		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
 		
 		if($height !== false && $weight !== false && $bmi !== false && $dob !== false) {
@@ -551,7 +551,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		}
 	}
 	
-	public function pullHeightWeightBmi( $recordData ) {
+	public function extractHeightWeightBmi($recordData ) {
 		$height = false;
 		$weight = false;
 		$bmi = false;
