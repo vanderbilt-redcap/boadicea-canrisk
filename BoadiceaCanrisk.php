@@ -6,15 +6,54 @@ use ExternalModules\ExternalModules;
 
 class BoadiceaCanrisk extends AbstractExternalModule
 {
+	private static $recordCache = [];
+	
 	public function redcap_save_record( $project_id, $record, $instrument, $event_id, $group_id, $survey_hash, $response_id, $repeat_instance ) {
-		$recordData = \REDCap::getData([
-			"project_id" => $project_id,
-			"records" => $record,
-			"return_format" => "json"
-		]);
+		$recordData = $this->getRecordData($project_id, $record);
 		
-		$recordData = json_decode($recordData,true);
+		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
+		
+		## Run youth BMI calc if less than 20 years old
+		if($age < 20) {
+			$this->calcJuvenileBmiPercentile($project_id, $record);
+		}
+		## Only run CanRisk calculations if adult
+		else {
+			$this->runBoadiceaPush($project_id,$record);
+		}
+	}
+	
+	public function getRecordData($project_id, $record) {
+		if(!array_key_exists($record,self::$recordCache)) {
+			$recordData = \REDCap::getData([
+				"project_id" => $project_id,
+				"records" => $record,
+				"return_format" => "json"
+			]);
+			
+			self::$recordCache[$record] = json_decode($recordData,true);
+		}
+		
+		return self::$recordCache[$record];
+	}
+	
+	public function getPatientAgeAndDOB($recordData) {
 		$dob = false;
+		
+		foreach($recordData as $thisEvent) {
+			if($thisEvent["date_of_birth"] != "") {
+				$dob = $thisEvent["date_of_birth"];
+			}
+		}
+		
+		$age = datediff($dob,date("Y-m-d"),"Y");
+		
+		return [$age, $dob];
+	}
+	
+	public function runBoadiceaPush($project_id, $record) {
+		$recordData = $this->getRecordData($project_id,$record);
+		
 		$menarche = false;
 		$parity = false;
 		$firstBirth = false;
@@ -26,11 +65,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$alcohol = false;
 		
 		list($height, $weight, $bmi) = $this->pullHeightWeightBmi($recordData);
+		list($ageCurrent,$dob) = $this->getPatientAgeAndDOB($recordData);
 		
 		foreach($recordData as $thisEvent) {
-			if($thisEvent["date_of_birth"] != "") {
-				$dob = $thisEvent["date_of_birth"];
-			}
 			if($thisEvent["age_first_period"] != "") {
 				$menarche = $thisEvent["age_first_period"];
 			}
@@ -148,284 +185,280 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 		}
 		
-		$age = datediff($dob,date("Y-m-d"),"Y");
+		## TODO switch to pulling edocs from [metree_import_complete] field
+		## Only use the instance with [metree_import_complete] == 2
 		
-		## Run youth BMI calc if less than 20 years old
-		if($age < 20) {
-			$this->calcBmiPercentile($height,$weight,$bmi,$dob);
+		$meTreeJson = file_get_contents(__DIR__."/metree.json");
+		$meTreeJson = json_decode($meTreeJson,true);
+		
+		$pedigreeData = [];
+		$familyId = substr(reset($meTreeJson)["uuid"],0,7);
+		
+		$alternateParents = [];
+		$currentAltId = 0;
+		
+		$defaultPerson = [
+			"FamId" => $familyId,
+			"Name" => 0,
+			"Target" => 0,
+			"IndivID" => 0,
+			"FathID" => 0,
+			"MothID" => 0,
+			"Sex" => 0,
+			"MZtwin" => 0,
+			"Dead" => 0,
+			"Age" => 0,
+			"Yob" => 0,
+			"BC1" => 0,
+			"BC2" => 0,
+			"OC" => 0,
+			"PRO" => 0,
+			"PAN" => 0,
+			"Ashkn" => 0,
+			"BRCA1" => "0:0",
+			"BRCA2" => "0:0",
+			"PALB2" => "0:0",
+			"ATM" => "0:0",
+			"CHEK2" => "0:0",
+			"BARD1" => "0:0",
+			"RAD51C" => "0:0",
+			"BRIP1" => "0:0",
+			"ER:PR:HER2:CK14:CK56" => [0,0,0,0,0]
+		];
+		
+		foreach($meTreeJson as $thisRow) {
+			$thisPerson = [];
+			
+			foreach($defaultPerson as $thisField => $thisValue) {
+				$thisPerson[$thisField] = $thisValue;
+			}
+			
+			if($thisRow["firstName"] == "") {
+				$thisPerson["Name"] = substr($thisRow["uuid"],0,7);
+			}
+			else {
+				$thisPerson["Name"] = substr($thisRow["firstName"],0,7);
+			}
+			
+			if($thisRow["relation"] == "SELF") {
+				$thisPerson["Target"] = 1;
+				$thisPerson["BRCA1"] = "S:N";
+				$thisPerson["BRCA2"] = "S:N";
+				$thisPerson["PALB2"] = "S:N";
+				$thisPerson["ATM"] = "S:N";
+			}
+			
+			$thisPerson["IndivID"] = substr($thisRow["uuid"],0,7);
+			
+			if($thisRow["father"] != "") {
+				$thisPerson["FathID"] = substr($thisRow["father"],0,7);
+			}
+			
+			if($thisRow["mother"] != "") {
+				$thisPerson["MothID"] = substr($thisRow["mother"],0,7);
+				
+				## If this is a child of the main person
+				if($thisPerson["MothID"] == $thisPerson["FamID"] && $thisPerson["birthDate"]) {
+					if($firstBirth === false || strtotime($thisRow["birthDate"]) < $firstBirth) {
+						$firstBirth = strtotime($thisRow["birthDate"]);
+					}
+				}
+			}
+			
+			## If father missing
+			if($thisPerson["MothID"] !== 0 && $thisPerson["FathID"] === 0) {
+				if(!array_key_exists($thisPerson["MothID"],$alternateParents)) {
+					$alternateParents[$thisPerson["MothID"]] = "AFATH".$currentAltId;
+					$currentAltId++;
+				}
+				
+				$thisPerson["FathID"] = $alternateParents[$thisPerson["MothID"]];
+			}
+			
+			## If mother missing
+			if($thisPerson["MothID"] === 0 && $thisPerson["FathID"] !== 0) {
+				if(!array_key_exists($thisPerson["FathID"],$alternateParents)) {
+					$alternateParents[$thisPerson["FathID"]] = "AMOTH".$currentAltId;
+					$currentAltId++;
+				}
+				
+				$thisPerson["MothID"] = $alternateParents[$thisPerson["FathID"]];
+			}
+			
+			$thisPerson["Sex"] = ($thisRow["gender"] == "female" ? "F" : "M");
+			
+			## Check if person is identical twin and mark MZtwin as 1
+			if(is_array($thisRow["multiple"])) {
+				foreach($thisRow["multiple"]["identical"] as $thisTwin) {
+					if($thisTwin == $thisRow["uuid"]) {
+						$thisPerson["MZtwin"] = 1;
+					}
+				}
+			}
+			
+			if($thisRow["living"] == "Deceased") {
+				$thisPerson["Dead"] = 1;
+			}
+			
+			if($thisRow["age"] != "") {
+				$thisPerson["Age"] = $thisRow["age"];
+			}
+			
+			if($thisRow["birthDate"] != "") {
+				$thisPerson["Yob"] = substr($thisRow["birthDate"],0,4);
+			}
+			
+			foreach($thisRow["conditions"] as $thisCondition) {
+				$ageAtCondition = $thisCondition["age"];
+				if($thisCondition["ageUnknown"]) {
+					$ageAtCondition = "AU";
+				}
+				
+				if($thisCondition["id"] == "breast_cancer") {
+					if($thisPerson["BC1"] == 0) {
+						$thisPerson["BC1"] = $ageAtCondition;
+					}
+					elseif($thisPerson["BC2"] == 0) {
+						$thisPerson["BC2"] = $ageAtCondition;
+					}
+				}
+				
+				if($thisCondition["id"] == "ovarian_cancer") {
+					$thisPerson["OC"] = $ageAtCondition;
+				}
+				
+				if($thisCondition["id"] == "prostate_cancer") {
+					$thisPerson["PRO"] = $ageAtCondition;
+				}
+				
+				if($thisCondition["id"] == "pancreatic_cancer") {
+					$thisPerson["PAN"] = $ageAtCondition;
+				}
+			}
+			
+			if(is_array($thisRow["ethnicity"])) {
+				foreach($thisRow["ethnicity"] as $thisEthnicity) {
+					if($thisEthnicity == "Ashkenazi Jewish") {
+						$thisPerson["Ashkn"] = 1;
+					}
+				}
+			}
+			
+			$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
+			
+			## Calc age at first birth by comparing oldest child DOB to person DOB
+			if($firstBirth) {
+				$dobTs = strtotime($dob);
+				
+				$firstBirth = floor(($firstBirth - $dobTs) / 365.25 / 24 / 60 / 60);
+			}
+			
+			## TODO Haven't found any BRCA or other genetic testing examples in MeTree test data
+			
+			$pedigreeData[] = $thisPerson;
 		}
-		## Only run CanRisk calculations if adult
-		else {
-			$meTreeJson = file_get_contents(__DIR__."/metree.json");
-			$meTreeJson = json_decode($meTreeJson,true);
+		
+		foreach($alternateParents as $thisParent) {
+			$thisPerson = [];
 			
-			$pedigreeData = [];
-			$familyId = substr(reset($meTreeJson)["uuid"],0,7);
-			
-			$alternateParents = [];
-			$currentAltId = 0;
-			
-			$defaultPerson = [
-				"FamId" => $familyId,
-				"Name" => 0,
-				"Target" => 0,
-				"IndivID" => 0,
-				"FathID" => 0,
-				"MothID" => 0,
-				"Sex" => 0,
-				"MZtwin" => 0,
-				"Dead" => 0,
-				"Age" => 0,
-				"Yob" => 0,
-				"BC1" => 0,
-				"BC2" => 0,
-				"OC" => 0,
-				"PRO" => 0,
-				"PAN" => 0,
-				"Ashkn" => 0,
-				"BRCA1" => "0:0",
-				"BRCA2" => "0:0",
-				"PALB2" => "0:0",
-				"ATM" => "0:0",
-				"CHEK2" => "0:0",
-				"BARD1" => "0:0",
-				"RAD51C" => "0:0",
-				"BRIP1" => "0:0",
-				"ER:PR:HER2:CK14:CK56" => [0,0,0,0,0]
-			];
-			
-			foreach($meTreeJson as $thisRow) {
-				$thisPerson = [];
-				
-				foreach($defaultPerson as $thisField => $thisValue) {
-					$thisPerson[$thisField] = $thisValue;
-				}
-				
-				if($thisRow["firstName"] == "") {
-					$thisPerson["Name"] = substr($thisRow["uuid"],0,7);
-				}
-				else {
-					$thisPerson["Name"] = substr($thisRow["firstName"],0,7);
-				}
-				
-				if($thisRow["relation"] == "SELF") {
-					$thisPerson["Target"] = 1;
-					$thisPerson["BRCA1"] = "S:N";
-					$thisPerson["BRCA2"] = "S:N";
-					$thisPerson["PALB2"] = "S:N";
-					$thisPerson["ATM"] = "S:N";
-				}
-				
-				$thisPerson["IndivID"] = substr($thisRow["uuid"],0,7);
-				
-				if($thisRow["father"] != "") {
-					$thisPerson["FathID"] = substr($thisRow["father"],0,7);
-				}
-				
-				if($thisRow["mother"] != "") {
-					$thisPerson["MothID"] = substr($thisRow["mother"],0,7);
-					
-					## If this is a child of the main person
-					if($thisPerson["MothID"] == $thisPerson["FamID"] && $thisPerson["birthDate"]) {
-						if($firstBirth === false || strtotime($thisRow["birthDate"]) < $firstBirth) {
-							$firstBirth = strtotime($thisRow["birthDate"]);
-						}
-					}
-				}
-				
-				## If father missing
-				if($thisPerson["MothID"] !== 0 && $thisPerson["FathID"] === 0) {
-					if(!array_key_exists($thisPerson["MothID"],$alternateParents)) {
-						$alternateParents[$thisPerson["MothID"]] = "AFATH".$currentAltId;
-						$currentAltId++;
-					}
-					
-					$thisPerson["FathID"] = $alternateParents[$thisPerson["MothID"]];
-				}
-				
-				## If mother missing
-				if($thisPerson["MothID"] === 0 && $thisPerson["FathID"] !== 0) {
-					if(!array_key_exists($thisPerson["FathID"],$alternateParents)) {
-						$alternateParents[$thisPerson["FathID"]] = "AMOTH".$currentAltId;
-						$currentAltId++;
-					}
-					
-					$thisPerson["MothID"] = $alternateParents[$thisPerson["FathID"]];
-				}
-				
-				$thisPerson["Sex"] = ($thisRow["gender"] == "female" ? "F" : "M");
-				
-				## Check if person is identical twin and mark MZtwin as 1
-				if(is_array($thisRow["multiple"])) {
-					foreach($thisRow["multiple"]["identical"] as $thisTwin) {
-						if($thisTwin == $thisRow["uuid"]) {
-							$thisPerson["MZtwin"] = 1;
-						}
-					}
-				}
-				
-				if($thisRow["living"] == "Deceased") {
-					$thisPerson["Dead"] = 1;
-				}
-				
-				if($thisRow["age"] != "") {
-					$thisPerson["Age"] = $thisRow["age"];
-				}
-				
-				if($thisRow["birthDate"] != "") {
-					$thisPerson["Yob"] = substr($thisRow["birthDate"],0,4);
-				}
-				
-				foreach($thisRow["conditions"] as $thisCondition) {
-					$ageAtCondition = $thisCondition["age"];
-					if($thisCondition["ageUnknown"]) {
-						$ageAtCondition = "AU";
-					}
-					
-					if($thisCondition["id"] == "breast_cancer") {
-						if($thisPerson["BC1"] == 0) {
-							$thisPerson["BC1"] = $ageAtCondition;
-						}
-						elseif($thisPerson["BC2"] == 0) {
-							$thisPerson["BC2"] = $ageAtCondition;
-						}
-					}
-					
-					if($thisCondition["id"] == "ovarian_cancer") {
-						$thisPerson["OC"] = $ageAtCondition;
-					}
-					
-					if($thisCondition["id"] == "prostate_cancer") {
-						$thisPerson["PRO"] = $ageAtCondition;
-					}
-					
-					if($thisCondition["id"] == "pancreatic_cancer") {
-						$thisPerson["PAN"] = $ageAtCondition;
-					}
-				}
-				
-				if(is_array($thisRow["ethnicity"])) {
-					foreach($thisRow["ethnicity"] as $thisEthnicity) {
-						if($thisEthnicity == "Ashkenazi Jewish") {
-							$thisPerson["Ashkn"] = 1;
-						}
-					}
-				}
-				
-				$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
-				
-				## Calc age at first birth by comparing oldest child DOB to person DOB
-				if($firstBirth) {
-					$dobTs = strtotime($dob);
-					
-					$firstBirth = floor(($firstBirth - $dobTs) / 365.25 / 24 / 60 / 60);
-				}
-				
-				## TODO Haven't found any BRCA or other genetic testing examples in MeTree test data
-				
-				$pedigreeData[] = $thisPerson;
+			foreach($defaultPerson as $thisField => $thisValue) {
+				$thisPerson[$thisField] = $thisValue;
 			}
 			
-			foreach($alternateParents as $thisParent) {
-				$thisPerson = [];
-				
-				foreach($defaultPerson as $thisField => $thisValue) {
-					$thisPerson[$thisField] = $thisValue;
-				}
-				
-				$thisPerson["IndivID"] = $thisParent;
-				$thisPerson["Name"] = $thisParent;
-				
-				if(substr($thisParent,0,5) == "AMOTH") {
-					$thisPerson["Sex"] = "F";
-				}
-				else {
-					$thisPerson["Sex"] = "M";
-				}
-				
-				$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
-				
-				$pedigreeData[] = $thisPerson;
+			$thisPerson["IndivID"] = $thisParent;
+			$thisPerson["Name"] = $thisParent;
+			
+			if(substr($thisParent,0,5) == "AMOTH") {
+				$thisPerson["Sex"] = "F";
+			}
+			else {
+				$thisPerson["Sex"] = "M";
 			}
 			
-			## Parse Invitae data and add genetic risk factors
-			$geneMappings = [
-				"NM_007294.3" => "BRCA1",
-				"NM_000059.3" => "BRCA2",
-				"NM_024675.3" => "PALB2",
-				"NM_000051.3" => "ATM",
-				"NM_007194.3" => "CHEK2",
-				"NM_002878.3" => "RAD51D",
-				"NM_058216.2" => "RAD51C",
-				"NM_032043.2" => "BRIP1",
-			];
+			$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
 			
-			$invitaeReportJson = file_get_contents(__DIR__."invitae.json");
-			$invitaeReport = json_decode($invitaeReportJson,true);
-			
-			foreach($invitaeReport["Orders"][0]["Results"] as $thisResult) {
-				if($thisResult["ValueType"] == "Coded Entry" && array_key_exists($thisResult["Value"],$geneMappings)) {
-					$geneValue = $geneMappings[$thisResult["Value"]];
-					
-					$thisPerson[$geneValue] = "T:P";
-				}
+			$pedigreeData[] = $thisPerson;
+		}
+		
+		## Parse Invitae data and add genetic risk factors
+		$geneMappings = [
+			"NM_007294.3" => "BRCA1",
+			"NM_000059.3" => "BRCA2",
+			"NM_024675.3" => "PALB2",
+			"NM_000051.3" => "ATM",
+			"NM_007194.3" => "CHEK2",
+			"NM_002878.3" => "RAD51D",
+			"NM_058216.2" => "RAD51C",
+			"NM_032043.2" => "BRIP1",
+		];
+		
+		## TODO Switch to using edoc [invitae_import_json_file]
+		## Only use the instance with [invitae_import_complete] == 2
+		$invitaeReportJson = file_get_contents(__DIR__."invitae.json");
+		$invitaeReport = json_decode($invitaeReportJson,true);
+		
+		foreach($invitaeReport["Orders"][0]["Results"] as $thisResult) {
+			if($thisResult["ValueType"] == "Coded Entry" && array_key_exists($thisResult["Value"],$geneMappings)) {
+				$geneValue = $geneMappings[$thisResult["Value"]];
+				
+				$thisPerson[$geneValue] = "T:P";
 			}
-			
-			## These seem to not be in any of the reports
+		}
+		
+		## These seem to not be in any of the reports
 //			"" => "ER",
 //				"" => "PR",
 //				"" => "HER2",
 //				"" => "CK14",
 //				"" => "CK56",
-			
-			$headers = [
-				"FamID","Name","Target","IndivID","FathID",
-				"MothID","Sex","MZtwin","Dead","Age","Yob",
-				"BC1","BC2","OC","PRO","PAN","Ashkn","BRCA1",
-				"BRCA2","PALB2","ATM","CHEK2","RAD51D","RAD51C",
-				"BRIP1","ER:PR:HER2:CK14:CK56"
-			];
-			
-			$history = implode("\t",$headers);
-			foreach($pedigreeData as $thisPerson) {
-				$history .= "\n".implode("\t",$thisPerson);
-			}
-			$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
+		
+		$headers = [
+			"FamID","Name","Target","IndivID","FathID",
+			"MothID","Sex","MZtwin","Dead","Age","Yob",
+			"BC1","BC2","OC","PRO","PAN","Ashkn","BRCA1",
+			"BRCA2","PALB2","ATM","CHEK2","RAD51D","RAD51C",
+			"BRIP1","ER:PR:HER2:CK14:CK56"
+		];
+		
+		$history = implode("\t",$headers);
+		foreach($pedigreeData as $thisPerson) {
+			$history .= "\n".implode("\t",$thisPerson);
+		}
+		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
 	41ebc07	Aundrea	1	41ebc07	e4a2c9a	586ec09	F	0	0	57	1963	0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0
 	41ebc07	e4a2c9a	0	e4a2c9a	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
 	41ebc07	586ec09	0	586ec09	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0";
-			## Temp data section since some things are broken/missing on survey
-	//		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
-	//XXXX	pa	0	m21	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
-	//XXXX	ma	0	f21	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
-	//XXXX	me	1	ch1	m21	f21	F	0	0	35 1986 0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0";
+		## Temp data section since some things are broken/missing on survey
+		//		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
+		//XXXX	pa	0	m21	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+		//XXXX	ma	0	f21	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+		//XXXX	me	1	ch1	m21	f21	F	0	0	35 1986 0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0";
+		
+		$dataString = $this->compressRecordData($dob, $menarche, $parity, $firstBirth, $ocUse,
+			$mhtUse, $weight, $bmi, $alcohol, $height,
+			$tubalLigation, $endometriosis, $history);
+		
+		error_log($dataString);
+		if($dataString !== false) {
+			$responseJson = $this->sendRequest($dataString);
 			
-			$dataString = $this->compressRecordData($dob, $menarche, $parity, $firstBirth, $ocUse,
-													$mhtUse, $weight, $bmi, $alcohol, $height,
-													$tubalLigation, $endometriosis, $history);
-			
-			error_log($dataString);
-			if($dataString !== false) {
-				$responseJson = $this->sendRequest($dataString);
-				
-				$response = json_decode($responseJson, true);
-				$foundError = false;
-				foreach($response as $responseKey => $responseRow) {
-					if(strpos($responseKey,"Error") !== false) {
-						$foundError = true;
-						error_log("Found Errror: ".var_export($responseRow,true));
-					}
-				}
-				if(!$foundError) {
-					error_log(var_export($response,true));
+			$response = json_decode($responseJson, true);
+			$foundError = false;
+			foreach($response as $responseKey => $responseRow) {
+				if(strpos($responseKey,"Error") !== false) {
+					$foundError = true;
+					error_log("Found Errror: ".var_export($responseRow,true));
 				}
 			}
-			else {
-				error_log("Failed to send");
+			if(!$foundError) {
+				error_log(var_export($response,true));
 			}
-			
-			## Do something to save the response to the record
 		}
+		else {
+			error_log("Failed to send");
+		}
+		
+		## Do something to save the response to the record
 	}
 	
 	public function compressRecordData($dob, $menarche, $parity, $firstBirth, $ocUse,
@@ -495,7 +528,12 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		return $output;
 	}
 	
-	public function calcBmiPercentile($height, $weight, $bmi, $dob) {
+	public function calcJuvenileBmiPercentile($project_id, $record) {
+		$recordData = $this->getRecordData($project_id,$record);
+		
+		list($height, $weight, $bmi) = $this->pullHeightWeightBmi($recordData);
+		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
+		
 		if($height !== false && $weight !== false && $bmi !== false && $dob !== false) {
 			## If age less than 20, calc BMI percentile and flag if above 85%
 			$bmi85Level = [];
