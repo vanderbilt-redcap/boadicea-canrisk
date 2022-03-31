@@ -274,7 +274,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		
 		$meTreeJson = file_get_contents(__DIR__."/metree.json");
-		$meTreeJson = $this->findCompletedMeTree($project_id, $record);)
+		$meTreeJson = $this->findCompletedMeTree($project_id, $record);
 		$meTreeJson = json_decode($meTreeJson,true);
 		
 		$pedigreeData = [];
