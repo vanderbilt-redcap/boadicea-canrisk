@@ -176,13 +176,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$chol = false;
 			$hdl = false;
 			$sbp = false;
-			$hyper = -1;
+			$hyper = false;
 			$diabetes = -1;
 			$smoking = -1;
 			
 			foreach($recordData as $thisEvent) {
 				if($thisEvent["sex_at_birth"] != "") {
-					$sex = $thisEvent["sex_at_birth"];
+					$sex = (($thisEvent["sex_at_birth"] == "1" ? "F" : ($thisEvent["sex_at_birth"] == "2" ? "M" : false)));
 				}
 				if($thisEvent["race_at_enrollment___1"] !== "") {
 					if($thisEvent["race_at_enrollment___3"] == "1") {
@@ -198,54 +198,54 @@ class BoadiceaCanrisk extends AbstractExternalModule
 						$race = "OTHER";
 					}
 				}
-				if($thisEvent["totalcholest_value_most_recent"] != "") {
+				if($thisEvent["totalcholest_value_most_recent"] !== "") {
 					$chol = $thisEvent["totalcholest_value_most_recent"];
 				}
-				if($thisEvent["hdl_value_most_recent"] != "") {
+				if($thisEvent["hdl_value_most_recent"] !== "") {
 					$hdl = $thisEvent["hdl_value_most_recent"];
 				}
-				if($thisEvent["sbp_value_most_recent"] != "") {
+				if($thisEvent["sbp_value_most_recent"] !== "") {
 					$sbp = $thisEvent["sbp_value_most_recent"];
 				}
-				if($thisEvent["high_blood_pressure_hypert___1"] !== "") {
-					$hyper = $thisEvent["high_blood_pressure_hypert___1"] == "1";
+				if($thisEvent["meds_lower_bp_2"] !== "") {
+					$hyper = $thisEvent["meds_lower_bp_2"];
 				}
 				if($thisEvent["type_1_diabetes___1"] !== "") {
-					$diabetes = $diabetes || ($thisEvent["type_1_diabetes___1"] == "1");
+					$diabetes = ($diabetes === true) || ($thisEvent["type_1_diabetes___1"] == "1");
 				}
 				if(is_array($thisEvent["type_1_diabetes_3___1"])) {
-					$diabetes = $diabetes || ($thisEvent["type_1_diabetes_3___1"] == "1");
+					$diabetes = ($diabetes === true) || ($thisEvent["type_1_diabetes_3___1"] == "1");
 				}
 				if(is_array($thisEvent["type_2_diabetes___1"])) {
-					$diabetes = $diabetes || ($thisEvent["type_2_diabetes___1"] == "1");
+					$diabetes = ($diabetes === true) || ($thisEvent["type_2_diabetes___1"] == "1");
 				}
 				if(is_array($thisEvent["type_2_diabetes_3___1"])) {
-					$diabetes = $diabetes || ($thisEvent["type_2_diabetes_3___1"] == "1");
+					$diabetes = ($diabetes === true) || ($thisEvent["type_2_diabetes_3___1"] == "1");
 				}
 				if($thisEvent["smoked_100_more_cigarettes"] !== "") {
-					$smoking = ($thisEvent["smoked_100_more_cigarettes"] == "1");
+					$smoking = ($thisEvent["smoked_100_more_cigarettes"] == "1" && ($thisEvent["now_smoke"] == "1" || $thisEvent["now_smoke"] == "2"));
 				}
 			}
 			
 			## If we have all the data, run the calc and save to REDCap
-			if(($sex !== false) && ($race !== false) && ($chol !== false) && ($hdl !== false) && ($sbp !== false) && ($hyper !== -1) && ($diabetes !== -1) && ($smoking !== -1)) {
+			if(($sex !== false) && ($race !== false) && ($chol !== false) && ($hdl !== false) && ($sbp !== false) && ($hyper !== false) && ($diabetes !== -1) && ($smoking !== -1)) {
 				$smoking = $smoking ? 1 : 0;
 				$diabetes = $diabetes ? 1 : 0;
 				$values = 		 [log($age), pow(log($age),2),log($chol),log($age) * log($chol),log($hdl),log($age)*log($hdl),
 								  ($hyper ? log($sbp) : 0),log($age) * ($hyper ? log($sbp) : 0),($hyper ? 0 : log($sbp)),
 								  log($age) * ($hyper ? 0 : log($sbp)),$smoking,log($age) * $smoking,$diabetes];
 				
-				if($sex == "1" && $race == "AA") {
+				if($sex == "M" && $race == "AA") {
 					$coefficient = [2.469, 0, 0.302, 0, -0.307, 0, 1.916, 0, 1.809, 0, 0.549, 0, 0.645];
 					$mean = 19.54;
 					$survival = 0.8954;
 				}
-				elseif($sex == "1") {
+				elseif($sex == "M") {
 					$coefficient = [12.344, 0, 11.853, -2.664, -7.990, 1.769, 1.797, 0, 1.764, 0, 7.837, -1.795, 0.658];
 					$mean = 61.18;
 					$survival = 0.9144;
 				}
-				elseif($sex == "2" && $race == "AA") {
+				elseif($sex == "F" && $race == "AA") {
 					$coefficient = [17.114, 0, 0.940, 0, -18.920, 4.475, 29.291, -6.432, 27.820, -6.087, 0.691, 0, 0.874];
 					$mean = 86.61;
 					$survival = 0.9533;
@@ -285,7 +285,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 			}
 			else {
-//				error_log("Didn't have all the data for CHD: ".($sex !== false)." && ".($race !== false) ." && ". ($chol !== false) ." && ". ($hdl !== false) ." && ". ($sbp !== false) ." && ". ($hyper !== -1) ." && ". ($diabetes !== -1) ." && ". ($smoking != -1));
+//				error_log("Didn't have all the data for CHD: ".($sex !== false)." && ".($race !== false) ." && ". ($chol !== false) ." && ". ($hdl !== false) ." && ". ($sbp !== false) ." && ". ($hyper !== false) ." && ". ($diabetes !== -1) ." && ". ($smoking != -1));
 			}
 		}
 		else {
