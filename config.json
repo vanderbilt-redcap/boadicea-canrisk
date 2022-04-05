@@ -5,6 +5,8 @@
 
 	"description": "Sends cancer risk data to canrisk API and saves cancer risk info back to REDCap",
 
+  	"framework-version": 6,
+
     "authors": [
         {
             "name": "Kyle McGuffin",

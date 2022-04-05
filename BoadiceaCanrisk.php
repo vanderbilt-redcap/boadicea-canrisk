@@ -21,6 +21,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		else {
 			$this->runBoadiceaPush($project_id,$record);
 		}
+		
+		$this->runCHDCalc($project_id,$record);
 	}
 	
 	public function getRecordData($project_id, $record) {
@@ -46,8 +48,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 		}
 		
-		$age = datediff($dob,date("Y-m-d"),"Y");
-		
+		$age = datediff($dob,date("Y-m-d"),"y");
 		return [$age, $dob];
 	}
 	
@@ -67,7 +68,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		if($meTreeFile) {
 			$q = $this->query("SELECT *
 					FROM redcap_edocs_metadata
-					WHERE edoc_id = ?
+					WHERE doc_id = ?
 						AND project_id = ?",
 					[$meTreeFile,$project_id]);
 			
@@ -96,7 +97,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		if($invitaeFile) {
 			$q = $this->query("SELECT *
 					FROM redcap_edocs_metadata
-					WHERE edoc_id = ?
+					WHERE doc_id = ?
 						AND project_id = ?",
 				[$invitaeFile,$project_id]);
 			
@@ -125,7 +126,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		if($broadFile) {
 			$q = $this->query("SELECT *
 					FROM redcap_edocs_metadata
-					WHERE edoc_id = ?
+					WHERE doc_id = ?
 						AND project_id = ?",
 				[$broadFile,$project_id]);
 			
@@ -136,6 +137,160 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		}
 		
 		return $broadData;
+	}
+	
+	public function runCHDCalc($project_id, $record) {
+		$recordData = $this->getRecordData($project_id,$record);
+		$broadData = $this->findCompletedBroad($project_id,$record);
+		$prsScore = false;
+		
+		$broadData = json_decode($broadData,true);
+		
+		if(empty($broadData)) {
+			return false;
+		}
+		foreach($broadData["condition_results"] as $thisCondition) {
+			if($thisCondition["condition"]["display"] == "coronary heart disease") {
+				$prsScore = $thisCondition["prs_score"];
+				$dataToSave = [
+						$this->getProject()->getRecordIdField() => $record,
+						"module_chd_prs" => $prsScore
+				];
+				$results = \REDCap::saveData([
+					"dataFormat" => "json",
+					"data" => json_encode([$dataToSave]),
+					"project_id" => $project_id
+				]);
+				
+				if($results["errors"] && count($results["errors"]) > 0) {
+					error_log("Save data error: ".var_export($results,true));
+				}
+			}
+		}
+		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
+		
+		## Run the additional calculations if we were able to find a PRS Score
+		if($prsScore && $age >= 40) {
+			$sex = false;
+			$race = false;
+			$chol = false;
+			$hdl = false;
+			$sbp = false;
+			$hyper = -1;
+			$diabetes = -1;
+			$smoking = -1;
+			
+			foreach($recordData as $thisEvent) {
+				if($thisEvent["sex_at_birth"] != "") {
+					$sex = $thisEvent["sex_at_birth"];
+				}
+				if($thisEvent["race_at_enrollment___1"] !== "") {
+					if($thisEvent["race_at_enrollment___3"] == "1") {
+						$race = "AA";
+					}
+					elseif($thisEvent["race_at_enrollment___4"] == "1") {
+						$race = "HIS";
+					}
+					elseif($thisEvent["race_at_enrollment___7"] == "1") {
+						$race = "EUR";
+					}
+					else {
+						$race = "OTHER";
+					}
+				}
+				if($thisEvent["totalcholest_value_most_recent"] != "") {
+					$chol = $thisEvent["totalcholest_value_most_recent"];
+				}
+				if($thisEvent["hdl_value_most_recent"] != "") {
+					$hdl = $thisEvent["hdl_value_most_recent"];
+				}
+				if($thisEvent["sbp_value_most_recent"] != "") {
+					$sbp = $thisEvent["sbp_value_most_recent"];
+				}
+				if($thisEvent["high_blood_pressure_hypert___1"] !== "") {
+					$hyper = $thisEvent["high_blood_pressure_hypert___1"] == "1";
+				}
+				if($thisEvent["type_1_diabetes___1"] !== "") {
+					$diabetes = $diabetes || ($thisEvent["type_1_diabetes___1"] == "1");
+				}
+				if(is_array($thisEvent["type_1_diabetes_3___1"])) {
+					$diabetes = $diabetes || ($thisEvent["type_1_diabetes_3___1"] == "1");
+				}
+				if(is_array($thisEvent["type_2_diabetes___1"])) {
+					$diabetes = $diabetes || ($thisEvent["type_2_diabetes___1"] == "1");
+				}
+				if(is_array($thisEvent["type_2_diabetes_3___1"])) {
+					$diabetes = $diabetes || ($thisEvent["type_2_diabetes_3___1"] == "1");
+				}
+				if($thisEvent["smoked_100_more_cigarettes"] !== "") {
+					$smoking = ($thisEvent["smoked_100_more_cigarettes"] == "1");
+				}
+			}
+			
+			## If we have all the data, run the calc and save to REDCap
+			if(($sex !== false) && ($race !== false) && ($chol !== false) && ($hdl !== false) && ($sbp !== false) && ($hyper !== -1) && ($diabetes !== -1) && ($smoking !== -1)) {
+				$smoking = $smoking ? 1 : 0;
+				$diabetes = $diabetes ? 1 : 0;
+				$values = 		 [log($age), pow(log($age),2),log($chol),log($age) * log($chol),log($hdl),log($age)*log($hdl),
+								  ($hyper ? log($sbp) : 0),log($age) * ($hyper ? log($sbp) : 0),($hyper ? 0 : log($sbp)),
+								  log($age) * ($hyper ? 0 : log($sbp)),$smoking,log($age) * $smoking,$diabetes];
+				
+				if($sex == "1" && $race == "AA") {
+					$coefficient = [2.469, 0, 0.302, 0, -0.307, 0, 1.916, 0, 1.809, 0, 0.549, 0, 0.645];
+					$mean = 19.54;
+					$survival = 0.8954;
+				}
+				elseif($sex == "1") {
+					$coefficient = [12.344, 0, 11.853, -2.664, -7.990, 1.769, 1.797, 0, 1.764, 0, 7.837, -1.795, 0.658];
+					$mean = 61.18;
+					$survival = 0.9144;
+				}
+				elseif($sex == "2" && $race == "AA") {
+					$coefficient = [17.114, 0, 0.940, 0, -18.920, 4.475, 29.291, -6.432, 27.820, -6.087, 0.691, 0, 0.874];
+					$mean = 86.61;
+					$survival = 0.9533;
+				}
+				else {
+					$coefficient = [-29.799, 4.884, 13.540, -3.114, -13.578, 3.149, 2.019, 0, 1.957, 0, 7.574, -1.665, 0.661];
+					$mean = -29.18;
+					$survival = 0.9665;
+				}
+				
+				$raceHr = [
+					"AA" => 1.18,
+					"HIS" => 1.39,
+					"EUR" => 1.60,
+					"OTHER" => 1.60
+				];
+				
+				$hr = $raceHr[$race];
+				
+				$product = array_map(function($x,$y) {return $x * $y;},$coefficient,$values);
+				$cs = 1 - (pow($survival,exp(array_sum($product) - $mean)));
+				$is = 1 - (pow($survival,exp(array_sum($product) - $mean)) + $prsScore * log($hr));
+				
+				$dataToSave = [
+					$this->getProject()->getRecordIdField() => $record,
+					"module_chd_int_score" => $is,
+					"module_chd_clinic_score" => $cs
+				];
+				$results = \REDCap::saveData([
+					"dataFormat" => "json",
+					"data" => json_encode([$dataToSave]),
+					"project_id" => $project_id
+				]);
+				
+				if($results["errors"] && count($results["errors"]) > 0) {
+					error_log("Save data error: ".var_export($results,true));
+				}
+			}
+			else {
+//				error_log("Didn't have all the data for CHD: ".($sex !== false)." && ".($race !== false) ." && ". ($chol !== false) ." && ". ($hdl !== false) ." && ". ($sbp !== false) ." && ". ($hyper !== -1) ." && ". ($diabetes !== -1) ." && ". ($smoking != -1));
+			}
+		}
+		else {
+//			error_log("Doesn't qualify for CHD: $age ~ $prsScore");
+		}
 	}
 	
 	public function runBoadiceaPush($project_id, $record) {
@@ -276,6 +431,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$meTreeJson = file_get_contents(__DIR__."/metree.json");
 		$meTreeJson = $this->findCompletedMeTree($project_id, $record);
 		$meTreeJson = json_decode($meTreeJson,true);
+		
+		if(empty($meTreeJson)) {
+			return false;
+		}
 		
 		$pedigreeData = [];
 		$familyId = substr(reset($meTreeJson)["uuid"],0,7);
