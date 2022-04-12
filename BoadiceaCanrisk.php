@@ -11,18 +11,20 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	public function redcap_save_record( $project_id, $record, $instrument, $event_id, $group_id, $survey_hash, $response_id, $repeat_instance ) {
 		$recordData = $this->getRecordData($project_id, $record);
 		
-		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
+		list($age,$dob, $enrolledAge) = $this->getPatientAgeAndDOB($recordData);
 		
 		## Run youth BMI calc if less than 20 years old
 		if($age < 20) {
 			$this->calcJuvenileBmiPercentile($project_id, $record);
 		}
 		## Only run CanRisk calculations if adult
-		else {
+		if($enrolledAge >= 18) {
 			$this->runBoadiceaPush($project_id,$record);
 		}
 		
-		$this->runCHDCalc($project_id,$record);
+		if($age >= 40) {
+			$this->runCHDCalc($project_id,$record);
+		}
 	}
 	
 	public function getRecordData($project_id, $record) {
@@ -41,15 +43,19 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	
 	public function getPatientAgeAndDOB($recordData) {
 		$dob = false;
+		$enrolledAge = false;
 		
 		foreach($recordData as $thisEvent) {
 			if($thisEvent["date_of_birth"] != "") {
 				$dob = $thisEvent["date_of_birth"];
 			}
+			if($thisEvent["age"] != "") {
+				$enrolledAge = $thisEvent["age"];
+			}
 		}
 		
 		$age = datediff($dob,date("Y-m-d"),"y");
-		return [$age, $dob];
+		return [$age, $dob, $enrolledAge];
 	}
 	
 	## Only use the instance with [metree_import_complete] == 2
@@ -296,6 +302,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	public function runBoadiceaPush($project_id, $record) {
 		$recordData = $this->getRecordData($project_id,$record);
 		
+		$sexAtBirth = false;
 		$menarche = false;
 		$parity = false;
 		$firstBirth = false;
