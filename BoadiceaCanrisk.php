@@ -172,6 +172,22 @@ class BoadiceaCanrisk extends AbstractExternalModule
 					error_log("Save data error: ".var_export($results,true));
 				}
 			}
+			if($thisCondition["condition"]["display"] == "breast cancer") {
+				$prsScore = $thisCondition["prs_score"];
+				$dataToSave = [
+					$this->getProject()->getRecordIdField() => $record,
+					"module_breast_cancer_prs" => $prsScore
+				];
+				$results = \REDCap::saveData([
+					"dataFormat" => "json",
+					"data" => json_encode([$dataToSave]),
+					"project_id" => $project_id
+				]);
+				
+				if($results["errors"] && count($results["errors"]) > 0) {
+					error_log("Save data error: ".var_export($results,true));
+				}
+			}
 		}
 		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
 		
