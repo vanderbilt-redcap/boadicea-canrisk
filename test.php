@@ -1,5 +1,19 @@
 <?php
 
+/** @var $module \Vanderbilt\BoadiceaCanrisk\BoadiceaCanrisk */
+//echo "<br /><pre>";
+//var_dump($module->calculateChdPrs(50,"M","EUR",250,30,130,0,0,0,0));
+//var_dump($module->calculateChdPrs(55,"F","AA",250,30,130,0,0,0,1));
+//var_dump($module->calculateChdPrs(60,"M","HIS",300,30,130,0,0,0,1.5));
+//var_dump($module->calculateChdPrs(60,"M","AA",300,30,130,0,0,0,1.5));
+//var_dump($module->calculateChdPrs(60,"M","EUR",200,20,130,0,0,0,-1.5));
+//var_dump($module->calculateChdPrs(65,"F","EUR",200,40,140,1,0,0,2));
+//var_dump($module->calculateChdPrs(70,"F","AA",250,40,140,1,1,0,2.5));
+//var_dump($module->calculateChdPrs(50,"M","OTHER",250,30,120,1,0,1,1.3));
+//var_dump($module->calculateChdPrs(45,"M","HIS",280,50,125,0,1,1,0.8));
+//echo "</pre><br />";
+//
+//die();
 $pedigreeData = "##CanRisk 1.0
 ##menarche=14
 ##parity=2

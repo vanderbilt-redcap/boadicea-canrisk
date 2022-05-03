@@ -175,8 +175,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		}
 		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
 		
+		## TODO, only run if high risk flag (polygenic risk, monogenic risk, family history risk)
+		
 		## Run the additional calculations if we were able to find a PRS Score
-		if($prsScore && $age >= 40) {
+		if($prsScore !== "" && $prsScore !== false && $age >= 40) {
 			$sex = false;
 			$race = false;
 			$chol = false;
@@ -233,69 +235,81 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 			}
 			
-			## If we have all the data, run the calc and save to REDCap
-			if(($sex !== false) && ($race !== false) && ($chol !== false) && ($hdl !== false) && ($sbp !== false) && ($hyper !== false) && ($diabetes !== -1) && ($smoking !== -1)) {
-				$smoking = $smoking ? 1 : 0;
-				$diabetes = $diabetes ? 1 : 0;
-				$values = 		 [log($age), pow(log($age),2),log($chol),log($age) * log($chol),log($hdl),log($age)*log($hdl),
-								  ($hyper ? log($sbp) : 0),log($age) * ($hyper ? log($sbp) : 0),($hyper ? 0 : log($sbp)),
-								  log($age) * ($hyper ? 0 : log($sbp)),$smoking,log($age) * $smoking,$diabetes];
-				
-				if($sex == "M" && $race == "AA") {
-					$coefficient = [2.469, 0, 0.302, 0, -0.307, 0, 1.916, 0, 1.809, 0, 0.549, 0, 0.645];
-					$mean = 19.54;
-					$survival = 0.8954;
-				}
-				elseif($sex == "M") {
-					$coefficient = [12.344, 0, 11.853, -2.664, -7.990, 1.769, 1.797, 0, 1.764, 0, 7.837, -1.795, 0.658];
-					$mean = 61.18;
-					$survival = 0.9144;
-				}
-				elseif($sex == "F" && $race == "AA") {
-					$coefficient = [17.114, 0, 0.940, 0, -18.920, 4.475, 29.291, -6.432, 27.820, -6.087, 0.691, 0, 0.874];
-					$mean = 86.61;
-					$survival = 0.9533;
-				}
-				else {
-					$coefficient = [-29.799, 4.884, 13.540, -3.114, -13.578, 3.149, 2.019, 0, 1.957, 0, 7.574, -1.665, 0.661];
-					$mean = -29.18;
-					$survival = 0.9665;
-				}
-				
-				$raceHr = [
-					"AA" => 1.18,
-					"HIS" => 1.39,
-					"EUR" => 1.60,
-					"OTHER" => 1.60
-				];
-				
-				$hr = $raceHr[$race];
-				
-				$product = array_map(function($x,$y) {return $x * $y;},$coefficient,$values);
-				$cs = 1 - (pow($survival,exp(array_sum($product) - $mean)));
-				$is = 1 - (pow($survival,exp(array_sum($product) - $mean)) + $prsScore * log($hr));
-				
-				$dataToSave = [
-					$this->getProject()->getRecordIdField() => $record,
-					"module_chd_int_score" => $is,
-					"module_chd_clinic_score" => $cs
-				];
-				$results = \REDCap::saveData([
-					"dataFormat" => "json",
-					"data" => json_encode([$dataToSave]),
-					"project_id" => $project_id
-				]);
-				
-				if($results["errors"] && count($results["errors"]) > 0) {
-					error_log("Save data error: ".var_export($results,true));
-				}
+			list($cs,$is) = $this->calculateChdPrs($age,$sex,$race,$chol,$hdl,$sbp,$hyper,$diabetes,$smoking,$prsScore);
+			
+			$dataToSave = [
+				$this->getProject()->getRecordIdField() => $record,
+				"module_chd_int_score" => $is,
+				"module_chd_clinic_score" => $cs
+			];
+			$results = \REDCap::saveData([
+				"dataFormat" => "json",
+				"data" => json_encode([$dataToSave]),
+				"project_id" => $project_id
+			]);
+			
+			if($results["errors"] && count($results["errors"]) > 0) {
+				error_log("Save data error: ".var_export($results,true));
 			}
-			else {
-//				error_log("Didn't have all the data for CHD: ".($sex !== false)." && ".($race !== false) ." && ". ($chol !== false) ." && ". ($hdl !== false) ." && ". ($sbp !== false) ." && ". ($hyper !== false) ." && ". ($diabetes !== -1) ." && ". ($smoking != -1));
-			}
+			
 		}
 		else {
 //			error_log("Doesn't qualify for CHD: $age ~ $prsScore");
+		}
+	}
+	
+	public function calculateChdPrs($age,$sex,$race,$chol,$hdl,$sbp,$hyper,$diabetes,$smoking,$prsScore) {
+		
+		## If we have all the data, run the calc and save to REDCap
+		if(($age !== false) && ($sex !== false) && ($race !== false) &&
+				($chol !== false) && ($hdl !== false) && ($sbp !== false) &&
+				($hyper !== false) && ($diabetes !== -1) && ($smoking !== -1) && $prsScore !== false) {
+			$smoking = $smoking ? 1 : 0;
+			$diabetes = $diabetes ? 1 : 0;
+			$values = 		 [log($age), pow(log($age),2),log($chol),log($age) * log($chol),log($hdl),log($age)*log($hdl),
+				($hyper ? log($sbp) : 0),log($age) * ($hyper ? log($sbp) : 0),($hyper ? 0 : log($sbp)),
+				log($age) * ($hyper ? 0 : log($sbp)),$smoking,log($age) * $smoking,$diabetes];
+			
+			if($sex == "M" && $race == "AA") {
+				$coefficient = [2.469, 0, 0.302, 0, -0.307, 0, 1.916, 0, 1.809, 0, 0.549, 0, 0.645];
+				$mean = 19.54;
+				$survival = 0.8954;
+			}
+			elseif($sex == "M") {
+				$coefficient = [12.344, 0, 11.853, -2.664, -7.990, 1.769, 1.797, 0, 1.764, 0, 7.837, -1.795, 0.658];
+				$mean = 61.18;
+				$survival = 0.9144;
+			}
+			elseif($sex == "F" && $race == "AA") {
+				$coefficient = [17.114, 0, 0.940, 0, -18.920, 4.475, 29.291, -6.432, 27.820, -6.087, 0.691, 0, 0.874];
+				$mean = 86.61;
+				$survival = 0.9533;
+			}
+			else {
+				$coefficient = [-29.799, 4.884, 13.540, -3.114, -13.578, 3.149, 2.019, 0, 1.957, 0, 7.574, -1.665, 0.661];
+				$mean = -29.18;
+				$survival = 0.9665;
+			}
+			
+			$raceHr = [
+				"AA" => 1.18,
+				"HIS" => 1.39,
+				"EUR" => 1.60,
+				"OTHER" => 1.60
+			];
+			
+			$hr = $raceHr[$race];
+			
+			$product = array_map(function($x,$y) {return $x * $y;},$coefficient,$values);
+//			echo "\n<br />Prod: ".var_export($product,true)." Mean: $mean Surv: $survival\n<br />";
+			$cs = 1 - (pow($survival,exp(array_sum($product) - $mean)));
+			$is = 1 - (pow($survival,exp(array_sum($product) - $mean + $prsScore * log($hr))));
+			
+			return [round($cs*100,2),round($is*100,2)];
+		}
+		else {
+//				error_log("Didn't have all the data for CHD: ".($sex !== false)." && ".($race !== false) ." && ". ($chol !== false) ." && ". ($hdl !== false) ." && ". ($sbp !== false) ." && ". ($hyper !== false) ." && ". ($diabetes !== -1) ." && ". ($smoking != -1));
+			return ["",""];
 		}
 	}
 	
