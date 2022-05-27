@@ -22,6 +22,22 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$this->runBoadiceaPush($project_id,$record);
 		}
 		
+		$chdPrs = false;
+		$bcPrs = false;
+		foreach($recordData as $thisEvent) {
+			if($thisEvent["module_chd_prs"] !== "" && $thisEvent["module_chd_prs"] !== NULL) {
+				$chdPrs = $thisEvent["module_chd_prs"];
+			}
+			if($thisEvent["module_breast_cancer_prs"] !== "" && $thisEvent["module_breast_cancer_prs"] !== NULL) {
+				$bcPrs = $thisEvent["module_breast_cancer_prs"];
+			}
+		}
+		
+		## Parse Broad data to save PRS Scores
+		if($chdPrs !== false && $bcPrs !== false) {
+			$this->pullBroadDataIntoRecord($project_id,$record);
+		}
+		
 		if($age >= 40) {
 			$this->runCHDCalc($project_id,$record);
 		}
@@ -145,10 +161,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		return $broadData;
 	}
 	
-	public function runCHDCalc($project_id, $record) {
-		$recordData = $this->getRecordData($project_id,$record);
+	public function pullBroadDataIntoRecord($project_id, $record) {
 		$broadData = $this->findCompletedBroad($project_id,$record);
-		$prsScore = false;
 		
 		$broadData = json_decode($broadData,true);
 		
@@ -159,8 +173,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			if($thisCondition["condition"]["display"] == "coronary heart disease") {
 				$prsScore = $thisCondition["prs_score"];
 				$dataToSave = [
-						$this->getProject()->getRecordIdField() => $record,
-						"module_chd_prs" => $prsScore
+					$this->getProject()->getRecordIdField() => $record,
+					"module_chd_prs" => $prsScore
 				];
 				$results = \REDCap::saveData([
 					"dataFormat" => "json",
@@ -187,6 +201,18 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				if($results["errors"] && count($results["errors"]) > 0) {
 					error_log("Save data error: ".var_export($results,true));
 				}
+			}
+		}
+	}
+	
+	
+	public function runCHDCalc($project_id, $record) {
+		$recordData = $this->getRecordData($project_id,$record);
+		$prsScore = false;
+		
+		foreach($recordData as $thisEvent) {
+			if($thisEvent["module_chd_prs"] !== "" && $thisEvent["module_chd_prs"] !== NULL) {
+				$prsScore = $thisEvent["module_chd_prs"];
 			}
 		}
 		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
