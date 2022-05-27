@@ -34,7 +34,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		}
 		
 		## Parse Broad data to save PRS Scores
-		if($chdPrs !== false && $bcPrs !== false) {
+		if($chdPrs === false && $bcPrs === false) {
 			$this->pullBroadDataIntoRecord($project_id,$record);
 		}
 		
