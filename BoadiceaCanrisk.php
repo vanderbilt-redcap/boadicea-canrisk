@@ -365,7 +365,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$tubalLigation = false;
 		$endometriosis = false;
 		$ocUse = false;
-		$prsBc = false;
+		$prsBC = false;
+		$prsOC = false;
 		$mhtUse = false;
 		$alcohol = false;
 		
@@ -384,6 +385,12 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 			if($thisEvent["diagnosed_with_endometriosis"] != "") {
 				$endometriosis = ($thisEvent["diagnosed_with_endometriosis"] == 1 ? "Y" : "N");
+			}
+			if($thisEvent["module_breast_cancer_prs"] != "") {
+				$prsBC = $thisEvent["module_breast_cancer_prs"];
+			}
+			if($thisEvent["module_ovarian_cancer_prs"] != "") {
+				$prsOC = $thisEvent["module_ovarian_cancer_prs"];
 			}
 			if($thisEvent["taken_oral_contraceptive_pill"] != "") {
 				if($thisEvent["taken_oral_contraceptive_pill"] == "2") {
@@ -745,7 +752,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		$dataString = $this->compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
 			$mhtUse, $weight, $bmi, $alcohol, $height,
-			$tubalLigation, $endometriosis, $history);
+			$tubalLigation, $endometriosis, $prsBC,$prsOC,$history);
 		
 		error_log($dataString);
 		if($dataString !== false) {
@@ -772,7 +779,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	
 	public function compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
 												  $mhtUse, $weight, $bmi, $alcohol, $height,
-												  $tubalLigation, $endometriosis, $history) {
+												  $tubalLigation, $endometriosis, $prsBC, $prsOC, $history) {
 		if($dob === false || $menarche === false || $parity === false || $weight === false ||
 				$height === false || $alcohol === false || $history === false) {
 			return false;
@@ -799,6 +806,12 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		}
 		if($endometriosis) {
 			$dataString .= "##Endo=".$endometriosis."\n";
+		}
+		if($prsBC) {
+			$dataString .= "##PRS_BC=".$prsBC."\n";
+		}
+		if($prsOC) {
+			$dataString .= "##PRS_OC=".$prsOC."\n";
 		}
 		
 		$dataString .= "##".$history."\n";
