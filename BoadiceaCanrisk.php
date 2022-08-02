@@ -808,7 +808,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$dataString .= "##Endo=".$endometriosis."\n";
 		}
 		if($prsBC) {
-			$dataString .= "##PRS_BC=".$prsBC."\n";
+			$dataString .= "##PRS_BC=alpha=0.45&zscore=".$prsBC."\n";
 		}
 		if($prsOC) {
 			$dataString .= "##PRS_OC=".$prsOC."\n";
