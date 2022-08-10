@@ -885,18 +885,21 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 			
 			$ageMonthsCalc = datediff($dob,date("Y-m-d"),"M");
-			if($bmi85Level[$sex][floor($ageMonthsCalc)] <= $bmi) {
-				$saveData = [
-					$this->getProject($project_id)->getRecordIdField() => $record,
-					"module_peds_bmi" => 1
-				];
-				
-				\REDCap::saveData([
-					"project_id" => $project_id,
-					"data" => json_encode($saveData),
-					"dataFormat" => "json"
-				]);
+			
+			$saveData = [
+				$this->getProject($project_id)->getRecordIdField() => $record,
+				"module_ped_bmi" => 2
+			];
+			
+			if($bmi85Level[$sex][(string)(floor($ageMonthsCalc) + 0.5)] <= $bmi) {
+				$saveData["module_ped_bmi"] = 1;
 			}
+				
+			$results = \REDCap::saveData([
+				"project_id" => $project_id,
+				"data" => json_encode([$saveData]),
+				"dataFormat" => "json"
+			]);
 		}
 	}
 	
