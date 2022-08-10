@@ -829,7 +829,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		$apiUrl = $this->getProjectSetting("api-url");
 		$apiToken = $this->getProjectSetting("auth-token");
-		echo $apiToken."<br />";
+		
 		$ch = curl_init($apiUrl);
 		curl_setopt($ch,CURLOPT_HTTPHEADER, [
 			"Authorization: Token ".$apiToken,
@@ -868,7 +868,16 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			$ageMonthsCalc = datediff($dob,date("Y-m-d"),"M");
 			if($bmi85Level[2][floor($ageMonthsCalc)] <= $bmi) {
-				## TODO flag as exceeding 85 percentile for under 20
+				$saveData = [
+					$this->getProject($project_id)->getRecordIdField() => $record,
+					"module_peds_bmi" => 1
+				];
+				
+				\REDCap::saveData([
+					"project_id" => $project_id,
+					"data" => json_encode($saveData),
+					"dataFormat" => "json"
+				]);
 			}
 		}
 	}
