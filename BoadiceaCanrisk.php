@@ -74,6 +74,18 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		return [$age, $dob, $enrolledAge];
 	}
 	
+	public function getPatientSex($recordData) {
+		$sex = false;
+		
+		foreach($recordData as $thisEvent) {
+			if($thisEvent["sex_at_birth"] != "") {
+				$sex = $thisEvent["sex_at_birth"];
+			}
+		}
+		
+		return $sex;
+	}
+	
 	## Only use the instance with [metree_import_complete] == 2
 	public function findCompletedMeTree($project_id, $record) {
 		$recordData = $this->getRecordData($project_id, $record);
@@ -855,6 +867,12 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
 		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
+		$sex = $this->getPatientSex($recordData);
+		
+		## For intersex/prefer not to answer, use male for BMI flag calculation
+		if($sex != 1 && $sex != 2) {
+			$sex = 1;
+		}
 		
 		if($height !== false && $weight !== false && $bmi !== false && $dob !== false) {
 			## If age less than 20, calc BMI percentile and flag if above 85%
@@ -867,7 +885,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 			
 			$ageMonthsCalc = datediff($dob,date("Y-m-d"),"M");
-			if($bmi85Level[2][floor($ageMonthsCalc)] <= $bmi) {
+			if($bmi85Level[$sex][floor($ageMonthsCalc)] <= $bmi) {
 				$saveData = [
 					$this->getProject($project_id)->getRecordIdField() => $record,
 					"module_peds_bmi" => 1
