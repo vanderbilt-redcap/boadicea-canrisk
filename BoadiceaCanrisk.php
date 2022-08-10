@@ -865,6 +865,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	public function calcJuvenileBmiPercentile($project_id, $record) {
 		$recordData = $this->getRecordData($project_id,$record);
 		
+		## If already have this data, don't overwrite as age at weight measurement will change
+		foreach($recordData as $thisEvent => $thisData) {
+			if($thisData["module_ped_bmi"] !== NULL && $thisData["module_ped_bmi"] !== "") {
+				return;
+			}
+		}
+		
 		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
 		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
 		$sex = $this->getPatientSex($recordData);
