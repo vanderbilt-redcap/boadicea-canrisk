@@ -317,7 +317,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		## If we have all the data, run the calc and save to REDCap
 		if(($age !== false) && ($sex !== false) && ($race !== false) &&
 				($chol !== false) && ($hdl !== false) && ($sbp !== false) &&
-				($hyper !== false) && ($diabetes !== -1) && ($smoking !== -1) && $prsScore !== false) {
+				($diabetes !== -1) && ($smoking !== -1) && $prsScore !== false) {
 			$smoking = $smoking ? 1 : 0;
 			$diabetes = $diabetes ? 1 : 0;
 			$values = 		 [log($age), pow(log($age),2),log($chol),log($age) * log($chol),log($hdl),log($age)*log($hdl),
