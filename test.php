@@ -1,6 +1,12 @@
 <?php
 
 /** @var $module \Vanderbilt\BoadiceaCanrisk\BoadiceaCanrisk */
+//$return = $module->calculateChdPrs(50,"M","EUR",300,25,160,1,1,1,-0.5);
+//echo "<br /><pre>";
+//var_dump($return);
+//echo "</pre><br />";
+//die();
+
 //echo "<br /><pre>";
 //var_dump($module->calculateChdPrs(50,"M","EUR",250,30,130,0,0,0,0));
 //var_dump($module->calculateChdPrs(55,"F","AA",250,30,130,0,0,0,1));

@@ -227,10 +227,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$prsScore = $thisEvent["module_chd_prs"];
 			}
 		}
-		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
+		list($age,$dob,$enrolledAge) = $this->getPatientAgeAndDOB($recordData);
 		
 		## TODO, only run if high risk flag (polygenic risk, monogenic risk, family history risk)
-		
+
 		## Run the additional calculations if we were able to find a PRS Score
 		if($prsScore !== "" && $prsScore !== false && $age >= 40) {
 			$sex = false;
@@ -275,13 +275,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				if($thisEvent["type_1_diabetes___1"] !== "") {
 					$diabetes = ($diabetes === true) || ($thisEvent["type_1_diabetes___1"] == "1");
 				}
-				if(is_array($thisEvent["type_1_diabetes_3___1"])) {
+				if($thisEvent["type_1_diabetes_3___1"] !== "") {
 					$diabetes = ($diabetes === true) || ($thisEvent["type_1_diabetes_3___1"] == "1");
 				}
-				if(is_array($thisEvent["type_2_diabetes___1"])) {
+				if($thisEvent["type_2_diabetes___1"] !== "") {
 					$diabetes = ($diabetes === true) || ($thisEvent["type_2_diabetes___1"] == "1");
 				}
-				if(is_array($thisEvent["type_2_diabetes_3___1"])) {
+				if($thisEvent["type_2_diabetes_3___1"] !== "") {
 					$diabetes = ($diabetes === true) || ($thisEvent["type_2_diabetes_3___1"] == "1");
 				}
 				if($thisEvent["smoked_100_more_cigarettes"] !== "") {
@@ -323,7 +323,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$values = 		 [log($age), pow(log($age),2),log($chol),log($age) * log($chol),log($hdl),log($age)*log($hdl),
 				($hyper ? log($sbp) : 0),log($age) * ($hyper ? log($sbp) : 0),($hyper ? 0 : log($sbp)),
 				log($age) * ($hyper ? 0 : log($sbp)),$smoking,log($age) * $smoking,$diabetes];
-			
+
 			if($sex == "M" && $race == "AA") {
 				$coefficient = [2.469, 0, 0.302, 0, -0.307, 0, 1.916, 0, 1.809, 0, 0.549, 0, 0.645];
 				$mean = 19.54;
