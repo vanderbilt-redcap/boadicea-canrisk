@@ -65,6 +65,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			if($thisEvent["date_of_birth"] != "") {
 				$dob = $thisEvent["date_of_birth"];
 			}
+			if($thisEvent["date_of_birth_child"] != "") {
+				$dob = $thisEvent["date_of_birth_child"];
+			}
 			if($thisEvent["age"] != "") {
 				$enrolledAge = $thisEvent["age"];
 			}
@@ -752,10 +755,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		foreach($pedigreeData as $thisPerson) {
 			$history .= "\n".implode("\t",$thisPerson);
 		}
-		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
-	41ebc07	Aundrea	1	41ebc07	e4a2c9a	586ec09	F	0	0	57	1963	0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0
-	41ebc07	e4a2c9a	0	e4a2c9a	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
-	41ebc07	586ec09	0	586ec09	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0";
+//		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
+//	41ebc07	Aundrea	1	41ebc07	e4a2c9a	586ec09	F	0	0	57	1963	0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0
+//	41ebc07	e4a2c9a	0	e4a2c9a	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+//	41ebc07	586ec09	0	586ec09	0	0	F	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0";
 		## Temp data section since some things are broken/missing on survey
 		//		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
 		//XXXX	pa	0	m21	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
@@ -766,7 +769,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$mhtUse, $weight, $bmi, $alcohol, $height,
 			$tubalLigation, $endometriosis, $prsBC,$prsOC,$history);
 		
-		error_log($dataString);
 		if($dataString !== false) {
 			$responseJson = $this->sendBoadiceaRequest($dataString);
 			
