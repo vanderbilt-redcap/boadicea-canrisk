@@ -373,6 +373,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	public function runBoadiceaPush($project_id, $record) {
 		$recordData = $this->getRecordData($project_id,$record);
 		
+		## Check if already ran BOADICEA for this patient
+		foreach($recordData as $thisEvent) {
+			if($thisEvent["module_boadicea_can_risk"] != "") {
+				return false;
+			}
+		}
+		
 		$sexAtBirth = false;
 		$menarche = false;
 		$parity = false;
@@ -512,8 +519,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 		}
 		
+		## Test MeTree file
+//		$meTreeJson = file_get_contents(__DIR__."/metree.json");
 		
-		$meTreeJson = file_get_contents(__DIR__."/metree.json");
+		## Pull completed MeTree file
 		$meTreeJson = $this->findCompletedMeTree($project_id, $record);
 		$meTreeJson = json_decode($meTreeJson,true);
 		
@@ -572,10 +581,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			if($thisRow["relation"] == "SELF") {
 				$thisPerson["Target"] = 1;
-				$thisPerson["BRCA1"] = "S:N";
-				$thisPerson["BRCA2"] = "S:N";
-				$thisPerson["PALB2"] = "S:N";
-				$thisPerson["ATM"] = "S:N";
+				$thisPerson["BRCA1"] = "T:N";
+				$thisPerson["BRCA2"] = "T:N";
+				$thisPerson["PALB2"] = "T:N";
 			}
 			
 			$thisPerson["IndivID"] = substr($thisRow["uuid"],0,7);
@@ -712,36 +720,30 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		## Parse Invitae data and add genetic risk factors
 		$geneMappings = [
-			"NM_007294.3" => "BRCA1",
-			"NM_000059.3" => "BRCA2",
-			"NM_024675.3" => "PALB2",
-			"NM_000051.3" => "ATM",
-			"NM_007194.3" => "CHEK2",
-			"NM_002878.3" => "RAD51D",
-			"NM_058216.2" => "RAD51C",
-			"NM_032043.2" => "BRIP1",
+			"assessment_brca1" => "BRCA1",
+			"assessment_brca2" => "BRCA2",
+			"assessment_palb2" => "PALB2",
 		];
 		
-		## TODO Switch to using edoc [invitae_import_json_file]
-		## Only use the instance with [invitae_import_complete] == 2
-		$invitaeReportJson = file_get_contents(__DIR__."invitae.json");
-		$invitaeReportJson = $this->findCompletedInvitae($project_id,$record);
-		$invitaeReport = json_decode($invitaeReportJson,true);
-		
-		foreach($invitaeReport["Orders"][0]["Results"] as $thisResult) {
-			if($thisResult["ValueType"] == "Coded Entry" && array_key_exists($thisResult["Value"],$geneMappings)) {
-				$geneValue = $geneMappings[$thisResult["Value"]];
-				
-				$thisPerson[$geneValue] = "T:P";
-			}
-		}
-		
-		## These seem to not be in any of the reports
+		## These genes appear to be missing from the Invitae data
+//		"NM_000051.3" => "ATM",
+//		"NM_007194.3" => "CHEK2",
+//		"NM_002878.3" => "RAD51D",
+//		"NM_058216.2" => "RAD51C",
+//		"NM_032043.2" => "BRIP1",
 //			"" => "ER",
 //				"" => "PR",
 //				"" => "HER2",
 //				"" => "CK14",
 //				"" => "CK56",
+		
+		foreach($recordData as $thisEvent) {
+			foreach($geneMappings as $redcapField => $geneName) {
+				if($thisEvent[$redcapField] == "Present") {
+					$thisPerson[$geneName] = "T:P";
+				}
+			}
+		}
 		
 		$headers = [
 			"FamID","Name","Target","IndivID","FathID",
@@ -755,6 +757,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		foreach($pedigreeData as $thisPerson) {
 			$history .= "\n".implode("\t",$thisPerson);
 		}
+		
+		## Test family history data
 //		$history = "FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
 //	41ebc07	Aundrea	1	41ebc07	e4a2c9a	586ec09	F	0	0	57	1963	0	0	0	0	0	0	S:N	S:N	S:N	S:N	0:0	0:0	0:0	0:0	0:0:0:0:0
 //	41ebc07	e4a2c9a	0	e4a2c9a	0	0	M	0	0	0	0	0	0	0	0	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
@@ -771,24 +775,35 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		if($dataString !== false) {
 			$responseJson = $this->sendBoadiceaRequest($dataString);
-			
 			$response = json_decode($responseJson, true);
 			$foundError = false;
 			foreach($response as $responseKey => $responseRow) {
 				if(strpos($responseKey,"Error") !== false) {
 					$foundError = true;
-					error_log("Found Errror: ".var_export($responseRow,true));
+					error_log("Found Error: ".var_export($responseRow,true));
 				}
 			}
 			if(!$foundError) {
-				error_log(var_export($response,true));
+				## Save the response to the record
+				$cancerRisk = $response["pedigree_result"][0]["lifetime_cancer_risk"][0]["breast cancer risk"]["percent"];
+				
+				$saveData = [
+					$this->getProject($project_id)->getRecordIdField() => $record,
+					"module_boadicea_can_risk" => $cancerRisk
+				];
+				
+				$results = \REDCap::saveData([
+					"project_id" => $project_id,
+					"data" => json_encode([$saveData]),
+					"dataFormat" => "json"
+				]);
 			}
+			
+			
 		}
 		else {
 			error_log("Failed to send");
 		}
-		
-		## Do something to save the response to the record
 	}
 	
 	public function compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
@@ -833,13 +848,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		return $dataString;
 	}
 	
-	public function sendBoadiceaRequest($pegigreeData) {
-		$pegigreeData = str_replace("\r\n","\\n",$pegigreeData);
-		$pegigreeData = str_replace("\n","\\n",$pegigreeData);
-		$pegigreeData = str_replace("\t","\\t",$pegigreeData);
+	public function sendBoadiceaRequest($pedigreeData) {
+		$pedigreeData = str_replace("\r\n","\\n",$pedigreeData);
+		$pedigreeData = str_replace("\n","\\n",$pedigreeData);
+		$pedigreeData = str_replace("\t","\\t",$pedigreeData);
 		
 		## TODO user_id needs to be project setting
-		$data = '{"mut_freq":"UK","cancer_rates":"UK","user_id":"mcguffk","pedigree_data":"'.$pegigreeData.'"}';
+		$data = '{"mut_freq":"UK","cancer_rates":"UK","user_id":"mcguffk","pedigree_data":"'.$pedigreeData.'"}';
 		
 		$apiUrl = $this->getProjectSetting("api-url");
 		$apiToken = $this->getProjectSetting("auth-token");
