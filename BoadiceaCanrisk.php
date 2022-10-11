@@ -777,12 +777,20 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$responseJson = $this->sendBoadiceaRequest($dataString);
 			$response = json_decode($responseJson, true);
 			$foundError = false;
+			$boadiceaErrors = "";
 			foreach($response as $responseKey => $responseRow) {
 				if(strpos($responseKey,"Error") !== false) {
 					$foundError = true;
-					error_log("Found Error: ".var_export($responseRow,true));
+					$boadiceaErrors .= var_export($responseRow,true);
 				}
 			}
+			foreach($response["warnings"] as $thisWarning) {
+				if($thisWarning == "lifetime_cancer_risk not provided") {
+					$foundError = true;
+					$boadiceaErrors .= "Lifetime cancer risk not provided. Does MeTree indicate this patient already had cancer?";
+				}
+			}
+			
 			if(!$foundError) {
 				## Save the response to the record
 				$cancerRisk = $response["pedigree_result"][0]["lifetime_cancer_risk"][0]["breast cancer risk"]["percent"];
@@ -797,9 +805,33 @@ class BoadiceaCanrisk extends AbstractExternalModule
 					"data" => json_encode([$saveData]),
 					"dataFormat" => "json"
 				]);
+				
+				## Reset the boadicea errors field so that it's clear there were no errors
+				$saveData = [
+					$this->getProject($project_id)->getRecordIdField() => $record,
+					"module_boadicea_errors" => ""
+				];
+				
+				$results = \REDCap::saveData([
+					"project_id" => $project_id,
+					"data" => json_encode([$saveData]),
+					"dataFormat" => "json",
+					"overwriteBehavior" => "overwrite"
+				]);
 			}
-			
-			
+			else {
+				## Save the BOADICEA error messages to a field so user can see it
+				$saveData = [
+					$this->getProject($project_id)->getRecordIdField() => $record,
+					"module_boadicea_errors" => $boadiceaErrors
+				];
+				
+				$results = \REDCap::saveData([
+					"project_id" => $project_id,
+					"data" => json_encode([$saveData]),
+					"dataFormat" => "json"
+				]);
+			}
 		}
 		else {
 			error_log("Failed to send");
