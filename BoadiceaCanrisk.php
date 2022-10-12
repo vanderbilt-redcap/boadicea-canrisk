@@ -399,6 +399,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			if($thisEvent["age_first_period"] != "") {
 				$menarche = $thisEvent["age_first_period"];
 			}
+			if($thisEvent["had_any_pregnancies"] == 2) {
+				$parity = 0;
+			}
 			if($thisEvent["how_many_children_do_you_h"] != "") {
 				$parity = $thisEvent["how_many_children_do_you_h"];
 			}
