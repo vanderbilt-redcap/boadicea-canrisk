@@ -568,6 +568,25 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			"ER:PR:HER2:CK14:CK56" => [0,0,0,0,0]
 		];
 		
+		## Parse Invitae data and add genetic risk factors
+		$geneMappings = [
+			"assessment_brca1" => "BRCA1",
+			"assessment_brca2" => "BRCA2",
+			"assessment_palb2" => "PALB2",
+		];
+		
+		## These genes appear to be missing from the Invitae data
+//		"NM_000051.3" => "ATM",
+//		"NM_007194.3" => "CHEK2",
+//		"NM_002878.3" => "RAD51D",
+//		"NM_058216.2" => "RAD51C",
+//		"NM_032043.2" => "BRIP1",
+//			"" => "ER",
+//				"" => "PR",
+//				"" => "HER2",
+//				"" => "CK14",
+//				"" => "CK56",
+		
 		foreach($meTreeJson as $thisRow) {
 			$thisPerson = [];
 			
@@ -587,6 +606,14 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$thisPerson["BRCA1"] = "T:N";
 				$thisPerson["BRCA2"] = "T:N";
 				$thisPerson["PALB2"] = "T:N";
+				
+				foreach($recordData as $thisEvent) {
+					foreach($geneMappings as $redcapField => $geneName) {
+						if($thisEvent[$redcapField] == "Present") {
+							$thisPerson[$geneName] = "T:P";
+						}
+					}
+				}
 			}
 			
 			$thisPerson["IndivID"] = substr($thisRow["uuid"],0,7);
@@ -719,33 +746,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
 			
 			$pedigreeData[] = $thisPerson;
-		}
-		
-		## Parse Invitae data and add genetic risk factors
-		$geneMappings = [
-			"assessment_brca1" => "BRCA1",
-			"assessment_brca2" => "BRCA2",
-			"assessment_palb2" => "PALB2",
-		];
-		
-		## These genes appear to be missing from the Invitae data
-//		"NM_000051.3" => "ATM",
-//		"NM_007194.3" => "CHEK2",
-//		"NM_002878.3" => "RAD51D",
-//		"NM_058216.2" => "RAD51C",
-//		"NM_032043.2" => "BRIP1",
-//			"" => "ER",
-//				"" => "PR",
-//				"" => "HER2",
-//				"" => "CK14",
-//				"" => "CK56",
-		
-		foreach($recordData as $thisEvent) {
-			foreach($geneMappings as $redcapField => $geneName) {
-				if($thisEvent[$redcapField] == "Present") {
-					$thisPerson[$geneName] = "T:P";
-				}
-			}
 		}
 		
 		$headers = [
@@ -893,7 +893,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		$apiUrl = $this->getProjectSetting("api-url");
 		$apiToken = $this->getProjectSetting("auth-token");
-		
 		$ch = curl_init($apiUrl);
 		curl_setopt($ch,CURLOPT_HTTPHEADER, [
 			"Authorization: Token ".$apiToken,
