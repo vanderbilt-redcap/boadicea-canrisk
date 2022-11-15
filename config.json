@@ -16,7 +16,8 @@
     ],
 	
 	"permissions": [
-	  "redcap_save_record"
+	  "redcap_save_record",
+	  "redcap_data_entry_form"
 	],
 
   	"links" : {
@@ -41,6 +42,12 @@
 		"key": "api-url",
 		"name": "URL for canrisk API",
 		"type": "text"
+	  },
+	  {
+		"key": "button-boadice-push-forms",
+		"name": "BOADICEA button specific form(s)",
+		"type": "form-list",
+		"repeatable": true
 	  }
 	]
 }

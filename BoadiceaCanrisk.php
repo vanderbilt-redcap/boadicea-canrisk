@@ -369,6 +369,19 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			return ["",""];
 		}
 	}
+
+	public function redcap_data_entry_form($project_id, $record, $instrument, $event_id, $group_id, $repeat_instance)
+	{
+		$recordData = $this->getRecordData($project_id,$record);
+		list($age,$dob, $enrolledAge) = $this->getPatientAgeAndDOB($recordData);
+		$forms = $this->getProjectSetting("button-boadice-push-forms");
+		if(in_array($instrument,$forms) && $age >= 18) {
+			echo '<script type="application/javascript">';
+			echo '	var BOADICEA_PUSH_AJAX_URL = "' . $this->getUrl('ajax/runBoadiceaPush.php') . '";';
+			echo '</script>';
+			echo '<script src="' . $this->getUrl('js/runBoadiceaPush.js') . '"></script>';
+		}
+	}
 	
 	public function runBoadiceaPush($project_id, $record) {
 		$recordData = $this->getRecordData($project_id,$record);
