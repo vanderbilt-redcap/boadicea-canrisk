@@ -17,6 +17,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		if($age < 20) {
 			$this->calcJuvenileBmiPercentile($project_id, $record);
 		}
+		error_log("Check BOADICEA $age");
 		## Only run CanRisk calculations if adult
 		if($age >= 18) {
 			$this->runBoadiceaPush($project_id,$record);
@@ -72,8 +73,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$enrolledAge = $thisEvent["age"];
 			}
 		}
-		
+		error_log($dob);
+		error_log(date("Y-m-d"));
 		$age = datediff($dob,date("Y-m-d"),"y");
+		error_log($age);
 		return [$age, $dob, $enrolledAge];
 	}
 	
@@ -372,7 +375,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	
 	public function runBoadiceaPush($project_id, $record) {
 		$recordData = $this->getRecordData($project_id,$record);
-		
+		error_log("Running BOADICEA");
 		## Check if already ran BOADICEA for this patient
 		foreach($recordData as $thisEvent) {
 			if($thisEvent["module_boadicea_can_risk"] != "") {
@@ -391,6 +394,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$prsOC = false;
 		$mhtUse = false;
 		$alcohol = false;
+		$meTreeSignOff = false;
 		
 		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
 		list($ageCurrent,$dob) = $this->getPatientAgeAndDOB($recordData);
@@ -519,6 +523,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				if($alcohol != "NA" && $alcohol != "0") {
 					$alcohol = round($alcohol * 10) / 10;
 				}
+				if($thisEvent["metree_ok"] == 1) {
+					$meTreeSignOff = true;
+				}
 			}
 		}
 		
@@ -529,12 +536,22 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$meTreeJson = $this->findCompletedMeTree($project_id, $record);
 		$meTreeJson = json_decode($meTreeJson,true);
 		
-		if(empty($meTreeJson)) {
+		## TODO There's a field on GIRA Review form to sign off on MeTree status
+		
+		if(empty($meTreeJson) && $meTreeSignOff === false) {
 			return false;
 		}
 		
 		$pedigreeData = [];
-		$familyId = substr(reset($meTreeJson)["uuid"],0,7);
+		if(empty($meTreeJson)) {
+			$familyId = generateRandomHash(6);
+			
+			## TODO Need to generate a profile for the SELF record
+			$meTreeJson = [];
+		}
+		else {
+			$familyId = substr(reset($meTreeJson)["uuid"],0,7);
+		}
 		
 		$alternateParents = [];
 		$currentAltId = 0;
@@ -587,6 +604,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 //				"" => "CK14",
 //				"" => "CK56",
 		
+		
+		$foundError = false;
+		$boadiceaErrors = "";
+		
 		foreach($meTreeJson as $thisRow) {
 			$thisPerson = [];
 			
@@ -596,6 +617,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			if($thisRow["firstName"] == "") {
 				$thisPerson["Name"] = substr($thisRow["uuid"],0,7);
+				
+				## TODO BOADICEA Error avoidances, name must not be blank
+				if($thisPerson["Name"] == "") {
+					$alternateParents[$thisPerson["FathID"]] = "AMOTH".$currentAltId;
+					$currentAltId++;
+					$thisPerson["Name"] = substr($thisRow["uuid"],0,7);
+				}
 			}
 			else {
 				$thisPerson["Name"] = substr($thisRow["firstName"],0,7);
@@ -668,17 +696,24 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$thisPerson["Dead"] = 1;
 			}
 			
-			if($thisRow["age"] != "") {
-				$thisPerson["Age"] = $thisRow["age"];
+			## BOADICEA Error, age must be an integer
+			if(((int)$thisRow["age"]) != "") {
+				$thisPerson["Age"] = (int)$thisRow["age"];
 			}
 			
-			if($thisRow["birthDate"] != "") {
-				$thisPerson["Yob"] = substr($thisRow["birthDate"],0,4);
+			if($thisRow["birthDate"] != "" && ((int)substr($thisRow["birthDate"],0,4)) != "") {
+				$thisPerson["Yob"] = (int)substr($thisRow["birthDate"],0,4);
 			}
 			
 			foreach($thisRow["conditions"] as $thisCondition) {
-				$ageAtCondition = $thisCondition["age"];
-				if($thisCondition["ageUnknown"]) {
+				$ageAtCondition = (int)$thisCondition["age"];
+				
+				## BOADICEA Error, If age is less than diagnosis age, move up to age at diagnosis
+				if($ageAtCondition && $thisPerson["Age"] < $ageAtCondition) {
+					$thisPerson["Age"] = $ageAtCondition;
+				}
+				
+				if($thisCondition["ageUnknown"] || $ageAtCondition == "") {
 					$ageAtCondition = "AU";
 				}
 				
@@ -692,11 +727,25 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 				
 				if($thisCondition["id"] == "ovarian_cancer") {
-					$thisPerson["OC"] = $ageAtCondition;
+					if($thisPerson["Sex"] == "F") {
+						$thisPerson["OC"] = $ageAtCondition;
+					}
+					else {
+						## BOADICEA Error: Males can't have ovarian cancer
+						$foundError = true;
+						$boadiceaErrors .= "MeTree error: Male relative has ovarian cancer diagnosis";
+					}
 				}
 				
 				if($thisCondition["id"] == "prostate_cancer") {
-					$thisPerson["PRO"] = $ageAtCondition;
+					if($thisPerson["Sex"] == "M") {
+						$thisPerson["PRO"] = $ageAtCondition;
+					}
+					else {
+						## BOADICEA Error: Females can't have prostate cancer
+						$foundError = true;
+						$boadiceaErrors .= "MeTree error: Female relative has prostate cancer diagnosis";
+					}
 				}
 				
 				if($thisCondition["id"] == "pancreatic_cancer") {
@@ -757,8 +806,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		];
 		
 		$history = implode("\t",$headers);
+		$backupHistory = implode("\t",$headers);
 		foreach($pedigreeData as $thisPerson) {
 			$history .= "\n".implode("\t",$thisPerson);
+			
+			if($thisPerson["Target"] == 1) {
+				$backupHistory .= "\n".implode("\t",$thisPerson);
+			}
 		}
 		
 		## Test family history data
@@ -778,15 +832,16 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		if($dataString !== false) {
 			$responseJson = $this->sendBoadiceaRequest($dataString);
+			
 			$response = json_decode($responseJson, true);
-			$foundError = false;
-			$boadiceaErrors = "";
+			
 			foreach($response as $responseKey => $responseRow) {
 				if(strpos($responseKey,"Error") !== false) {
 					$foundError = true;
 					$boadiceaErrors .= var_export($responseRow,true);
 				}
 			}
+			
 			foreach($response["warnings"] as $thisWarning) {
 				if($thisWarning == "lifetime_cancer_risk not provided") {
 					$foundError = true;
@@ -794,7 +849,27 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 			}
 			
-			if(!$foundError) {
+			## Calculate separate BOADICEA with backup pedigree (self-only)
+			if($foundError) {
+				$dataString2 = $this->compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
+					$mhtUse, $weight, $bmi, $alcohol, $height,
+					$tubalLigation, $endometriosis, $prsBC,$prsOC,$backupHistory);
+				
+				if($dataString2 !== false) {
+					$foundError2 = false;
+					$responseJson = $this->sendBoadiceaRequest($dataString2);
+					$response = json_decode($responseJson, true);
+					
+					foreach($response as $responseKey => $responseRow) {
+						if(strpos($responseKey,"Error") !== false) {
+							$foundError2 = true;
+							$boadiceaErrors .= var_export($responseRow,true);
+						}
+					}
+				}
+			}
+			
+			if(!$foundError2) {
 				## Save the response to the record
 				$cancerRisk = $response["pedigree_result"][0]["lifetime_cancer_risk"][0]["breast cancer risk"]["percent"];
 				
@@ -822,7 +897,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 					"overwriteBehavior" => "overwrite"
 				]);
 			}
-			else {
+			
+			if($foundError) {
 				## Save the BOADICEA error messages to a field so user can see it
 				$saveData = [
 					$this->getProject($project_id)->getRecordIdField() => $record,
