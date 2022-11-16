@@ -382,7 +382,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		list($age)  = $this->getPatientAgeAndDOB($recordData);
 		$sexAtBirth = $this->getPatientSex($recordData);
 		foreach($recordData as $thisEvent) {
-			$metree_ok = $thisEvent['metree_ok'];
+			if($thisEvent["metree_ok"] != "") {
+				$metree_ok = $thisEvent['metree_ok'];
+			}
 		}
 		$forms = $this->getProjectSetting("button-boadice-push-forms");
 		if(in_array($instrument,$forms) && 
@@ -971,12 +973,18 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		}
 		
 		$dataString = "##CanRisk 1.0\n".
-			"##menarch=$menarche\n".
 			"##BMI=$bmi\n".
-			"##alcohol=$alcohol\n".
-			"##height=$height\n".
-			"##parity=$parity\n";
+			"##height=$height\n";
 		
+		if($menarche) {
+			$dataString .= "##menarche=$menarche\n";
+		}
+		if($alcohol) {
+			$dataString .= "##alcohol=$alcohol\n";
+		}
+		if($parity) {
+			$dataString .= "##parity=$parity\n";
+		}
 		if($firstBirth) {
 			$dataString .= "##First_live_birth=".$firstBirth."\n";
 		}
