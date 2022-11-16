@@ -4,7 +4,7 @@ header('Content-Type: application/json');
 $project_id = trim($_GET['pid']);
 $record_id  = trim($_GET['id']);
 
-$run = $module->runBoadiceaPush($project_id,$record);
+$run = $module->runBoadiceaPush($project_id,$record_id,true);
 
 $response = [];
 if($run || is_null($run)) {
