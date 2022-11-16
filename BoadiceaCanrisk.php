@@ -379,9 +379,16 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	public function redcap_data_entry_form($project_id, $record, $instrument, $event_id, $group_id, $repeat_instance)
 	{
 		$recordData = $this->getRecordData($project_id,$record);
-		list($age,$dob, $enrolledAge) = $this->getPatientAgeAndDOB($recordData);
+		list($age)  = $this->getPatientAgeAndDOB($recordData);
+		$sexAtBirth = $this->getPatientSex($recordData);
+		foreach($recordData as $thisEvent) {
+			$metree_ok = $thisEvent['metree_ok'];
+		}
 		$forms = $this->getProjectSetting("button-boadice-push-forms");
-		if(in_array($instrument,$forms) && $age >= 18) {
+		if(in_array($instrument,$forms) && 
+		   $age >= 18 &&
+		   $sexAtBirth == 1 &&
+		   $metree_ok == 1) {
 			echo '<script type="application/javascript">';
 			echo '	var BOADICEA_PUSH_AJAX_URL = "' . $this->getUrl('ajax/runBoadiceaPush.php') . '&id='. (int)$record .'";';
 			echo '</script>';
