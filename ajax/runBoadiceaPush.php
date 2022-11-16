@@ -1,10 +1,10 @@
 <?php
 header('Content-Type: application/json');
 
-$project_id = trim($_GET['pid']);
-$record_id  = trim($_GET['id']);
+$project_id = (int)trim($_GET['pid']);
+$record_id  = (int)trim($_GET['id']);
 
-$run = $module->runBoadiceaPush($project_id,$record_id,true);
+$run = $module->runBoadiceaPush($project_id,$record_id);
 
 $response = [];
 if($run || is_null($run)) {

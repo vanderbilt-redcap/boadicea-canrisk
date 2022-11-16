@@ -389,24 +389,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		}
 	}
 	
-	public function runBoadiceaPush($project_id, $record, $regenerate = false) {
+	public function runBoadiceaPush($project_id, $record) {
 		$recordData = $this->getRecordData($project_id,$record);
-		
-		## Check if already ran BOADICEA for this patient if not regenerating
-		if($regenerate === false) {
-			foreach($recordData as $thisEvent) {
-				if($thisEvent["module_boadicea_can_risk"] != "") {
-					error_log("Already ran BOADICEA");
-					return false;
-				}
-			}
-		}
 		
 		$sexAtBirth = $this->getPatientSex($recordData);
 		
 		## Don't run for male participants
 		if($sexAtBirth != 1) {
-			error_log("Wrong sex at birth");
 			return false;
 		}
 		
@@ -421,6 +410,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$mhtUse = false;
 		$alcohol = false;
 		$meTreeSignOff = false;
+		$previousBoadiceaString = false;
 		
 		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
 		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
@@ -428,6 +418,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		foreach($recordData as $thisEvent) {
 			if($thisEvent["age_first_period"] != "") {
 				$menarche = $thisEvent["age_first_period"];
+			}
+			if($thisEvent["boadicea_pedigree_string"] != "") {
+				$previousBoadiceaString = $thisEvent["boadicea_pedigree_string"] ;
 			}
 			if($thisEvent["had_any_pregnancies"] == 2) {
 				$parity = 0;
@@ -549,9 +542,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				if($alcohol != "NA" && $alcohol != "0") {
 					$alcohol = round($alcohol * 10) / 10;
 				}
-				if($thisEvent["metree_ok"] == 1) {
-					$meTreeSignOff = true;
-				}
+			}
+			
+			if($thisEvent["metree_ok"] == 1) {
+				$meTreeSignOff = true;
 			}
 		}
 		
@@ -563,13 +557,12 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$meTreeJson = json_decode($meTreeJson,true);
 		
 		if(empty($meTreeJson) && $meTreeSignOff === false) {
-			error_log("Missing MeTree");
 			return false;
 		}
 		
 		$pedigreeData = [];
 		if(empty($meTreeJson)) {
-			$familyId = generateRandomHash(6);
+			$familyId = 1;
 			
 			## TODO Need an alternate way to determine age at first birth if missing MeTree
 			
@@ -869,7 +862,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$mhtUse, $weight, $bmi, $alcohol, $height,
 			$tubalLigation, $endometriosis, $prsBC,$prsOC,$history);
 		
-		## TODO Need to save the string so we can track if anything changed and re-run
+		## BOADICEA data hasn't changed for this patient, don't re-send BOADICEA
+		if($previousBoadiceaString && $dataString == $previousBoadiceaString) {
+			return false;
+		}
 		
 		if($dataString !== false) {
 			$responseJson = $this->sendBoadiceaRequest($dataString);
@@ -916,7 +912,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				
 				$saveData = [
 					$this->getProject($project_id)->getRecordIdField() => $record,
-					"module_boadicea_can_risk" => $cancerRisk
+					"module_boadicea_can_risk" => $cancerRisk,
+					"boadicea_pedigree_string" => $dataString
 				];
 				
 				$results = \REDCap::saveData([
@@ -943,7 +940,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				## Save the BOADICEA error messages to a field so user can see it
 				$saveData = [
 					$this->getProject($project_id)->getRecordIdField() => $record,
-					"module_boadicea_errors" => $boadiceaErrors
+					"module_boadicea_errors" => $boadiceaErrors,
+					"boadicea_pedigree_string" => $dataString
 				];
 				
 				$results = \REDCap::saveData([
@@ -961,10 +959,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	public function compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
 												  $mhtUse, $weight, $bmi, $alcohol, $height,
 												  $tubalLigation, $endometriosis, $prsBC, $prsOC, $history) {
-//		if($dob === false || $menarche === false || $parity === false || $weight === false ||
-//				$height === false || $alcohol === false || $history === false) {
-//			return false;
-//		}
+		if($dob === false || $weight === false || $height === false) {
+			return false;
+		}
 		
 		$dataString = "##CanRisk 1.0\n".
 			"##menarch=$menarche\n".
