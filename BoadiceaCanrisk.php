@@ -383,7 +383,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$forms = $this->getProjectSetting("button-boadice-push-forms");
 		if(in_array($instrument,$forms) && $age >= 18) {
 			echo '<script type="application/javascript">';
-			echo '	var BOADICEA_PUSH_AJAX_URL = "' . $this->getUrl('ajax/runBoadiceaPush.php') .'&id=' . $record . '";';
+			echo '	var BOADICEA_PUSH_AJAX_URL = "' . $this->getUrl('ajax/runBoadiceaPush.php') . '&id='. (int)$record .'";';
 			echo '</script>';
 			echo '<script src="' . $this->getUrl('js/runBoadiceaPush.js') . '"></script>';
 		}
@@ -868,6 +868,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$dataString = $this->compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
 			$mhtUse, $weight, $bmi, $alcohol, $height,
 			$tubalLigation, $endometriosis, $prsBC,$prsOC,$history);
+		
+		## TODO Need to save the string so we can track if anything changed and re-run
 		
 		if($dataString !== false) {
 			$responseJson = $this->sendBoadiceaRequest($dataString);
