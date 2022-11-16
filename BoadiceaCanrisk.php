@@ -873,7 +873,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		## BOADICEA data hasn't changed for this patient, don't re-send BOADICEA
 		if($previousBoadiceaString && $dataString == $previousBoadiceaString) {
-			return false;
+			return true;
 		}
 		
 		if($dataString !== false) {
