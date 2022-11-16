@@ -91,7 +91,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		## For intersex/prefer not to answer, use male for BMI flag calculation
 		if($sex != 1 && $sex != 2 && $sex != "") {
-			$sex = 1;
+			$sex = 2;
 		}
 		
 		return $sex;
@@ -398,6 +398,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		if($regenerate === false) {
 			foreach($recordData as $thisEvent) {
 				if($thisEvent["module_boadicea_can_risk"] != "") {
+					error_log("Already ran BOADICEA");
 					return false;
 				}
 			}
@@ -406,7 +407,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$sexAtBirth = $this->getPatientSex($recordData);
 		
 		## Don't run for male participants
-		if($sexAtBirth == 1) {
+		if($sexAtBirth != 1) {
+			error_log("Wrong sex at birth");
 			return false;
 		}
 		
@@ -563,6 +565,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$meTreeJson = json_decode($meTreeJson,true);
 		
 		if(empty($meTreeJson) && $meTreeSignOff === false) {
+			error_log("Missing MeTree");
 			return false;
 		}
 		
