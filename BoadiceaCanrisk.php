@@ -383,7 +383,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$forms = $this->getProjectSetting("button-boadice-push-forms");
 		if(in_array($instrument,$forms) && $age >= 18) {
 			echo '<script type="application/javascript">';
-			echo '	var BOADICEA_PUSH_AJAX_URL = "' . $this->getUrl('ajax/runBoadiceaPush.php') . '";';
+			echo '	var BOADICEA_PUSH_AJAX_URL = "' . $this->getUrl('ajax/runBoadiceaPush.php') .'&id=' . $record . '";';
 			echo '</script>';
 			echo '<script src="' . $this->getUrl('js/runBoadiceaPush.js') . '"></script>';
 		}
