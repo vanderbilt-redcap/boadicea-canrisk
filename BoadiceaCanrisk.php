@@ -73,10 +73,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$enrolledAge = $thisEvent["age"];
 			}
 		}
-		error_log($dob);
-		error_log(date("Y-m-d"));
 		$age = datediff($dob,date("Y-m-d"),"y");
-		error_log($age);
+		
 		return [$age, $dob, $enrolledAge];
 	}
 	
@@ -581,7 +579,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 					"gender" => "female", // BOADICEA is only run on female participants
 					"uuid" => $familyId,
 					"age" => $age,
-					"birthDate" => $dob
+					"birthDate" => $dob,
+					"relation" => "SELF"
 				]
 			];
 		}
@@ -960,10 +959,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	public function compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
 												  $mhtUse, $weight, $bmi, $alcohol, $height,
 												  $tubalLigation, $endometriosis, $prsBC, $prsOC, $history) {
-		if($dob === false || $menarche === false || $parity === false || $weight === false ||
-				$height === false || $alcohol === false || $history === false) {
-			return false;
-		}
+//		if($dob === false || $menarche === false || $parity === false || $weight === false ||
+//				$height === false || $alcohol === false || $history === false) {
+//			return false;
+//		}
 		
 		$dataString = "##CanRisk 1.0\n".
 			"##menarch=$menarche\n".
