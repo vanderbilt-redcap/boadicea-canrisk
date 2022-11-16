@@ -17,7 +17,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		if($age < 20) {
 			$this->calcJuvenileBmiPercentile($project_id, $record);
 		}
-		error_log("Check BOADICEA $age");
+		
 		## Only run CanRisk calculations if adult
 		if($age >= 18) {
 			$this->runBoadiceaPush($project_id,$record);
@@ -87,6 +87,11 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			if($thisEvent["sex_at_birth"] != "") {
 				$sex = $thisEvent["sex_at_birth"];
 			}
+		}
+		
+		## For intersex/prefer not to answer, use male for BMI flag calculation
+		if($sex != 1 && $sex != 2 && $sex != "") {
+			$sex = 1;
 		}
 		
 		return $sex;
@@ -373,17 +378,25 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		}
 	}
 	
-	public function runBoadiceaPush($project_id, $record) {
+	public function runBoadiceaPush($project_id, $record, $regenerate = false) {
 		$recordData = $this->getRecordData($project_id,$record);
-		error_log("Running BOADICEA");
-		## Check if already ran BOADICEA for this patient
-		foreach($recordData as $thisEvent) {
-			if($thisEvent["module_boadicea_can_risk"] != "") {
-				return false;
+		
+		## Check if already ran BOADICEA for this patient if not regenerating
+		if($regenerate === false) {
+			foreach($recordData as $thisEvent) {
+				if($thisEvent["module_boadicea_can_risk"] != "") {
+					return false;
+				}
 			}
 		}
 		
-		$sexAtBirth = false;
+		$sexAtBirth = $this->getPatientSex($recordData);
+		
+		## Don't run for male participants
+		if($sexAtBirth == 1) {
+			return false;
+		}
+		
 		$menarche = false;
 		$parity = false;
 		$firstBirth = false;
@@ -397,7 +410,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$meTreeSignOff = false;
 		
 		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
-		list($ageCurrent,$dob) = $this->getPatientAgeAndDOB($recordData);
+		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
 		
 		foreach($recordData as $thisEvent) {
 			if($thisEvent["age_first_period"] != "") {
@@ -536,8 +549,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$meTreeJson = $this->findCompletedMeTree($project_id, $record);
 		$meTreeJson = json_decode($meTreeJson,true);
 		
-		## TODO There's a field on GIRA Review form to sign off on MeTree status
-		
 		if(empty($meTreeJson) && $meTreeSignOff === false) {
 			return false;
 		}
@@ -546,8 +557,17 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		if(empty($meTreeJson)) {
 			$familyId = generateRandomHash(6);
 			
-			## TODO Need to generate a profile for the SELF record
-			$meTreeJson = [];
+			## TODO Need an alternate way to determine age at first birth if missing MeTree
+			
+			##  Need to generate a profile for the SELF record
+			$meTreeJson = [
+				[
+					"gender" => "female", // BOADICEA is only run on female participants
+					"uuid" => $familyId,
+					"age" => $age,
+					"birthDate" => $dob
+				]
+			];
 		}
 		else {
 			$familyId = substr(reset($meTreeJson)["uuid"],0,7);
@@ -615,14 +635,20 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$thisPerson[$thisField] = $thisValue;
 			}
 			
+			$thisPerson["Sex"] = ($thisRow["gender"] == "female" ? "F" : "M");
+			
 			if($thisRow["firstName"] == "") {
 				$thisPerson["Name"] = substr($thisRow["uuid"],0,7);
 				
-				## TODO BOADICEA Error avoidances, name must not be blank
+				## BOADICEA Error avoidance: name must not be blank
 				if($thisPerson["Name"] == "") {
-					$alternateParents[$thisPerson["FathID"]] = "AMOTH".$currentAltId;
+					if($thisPerson["Sex"] == "F") {
+						$thisPerson["Name"] = "AMOTH".$currentAltId;
+					}
+					else {
+						$thisPerson["Name"] = "AFATH".$currentAltId;
+					}
 					$currentAltId++;
-					$thisPerson["Name"] = substr($thisRow["uuid"],0,7);
 				}
 			}
 			else {
@@ -680,8 +706,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				
 				$thisPerson["MothID"] = $alternateParents[$thisPerson["FathID"]];
 			}
-			
-			$thisPerson["Sex"] = ($thisRow["gender"] == "female" ? "F" : "M");
 			
 			## Check if person is identical twin and mark MZtwin as 1
 			if(is_array($thisRow["multiple"])) {
@@ -1002,11 +1026,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
 		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
 		$sex = $this->getPatientSex($recordData);
-		
-		## For intersex/prefer not to answer, use male for BMI flag calculation
-		if($sex != 1 && $sex != 2) {
-			$sex = 1;
-		}
 		
 		if($height !== false && $weight !== false && $bmi !== false && $dob !== false) {
 			## If age less than 20, calc BMI percentile and flag if above 85%
