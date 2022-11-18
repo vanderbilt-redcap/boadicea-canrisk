@@ -387,7 +387,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 		}
 		$forms = $this->getProjectSetting("button-boadice-push-forms");
-		if(in_array($instrument,$forms) && 
+		if($forms && in_array($instrument,$forms) &&
 		   $age >= 18 &&
 		   $sexAtBirth == 1 &&
 		   $metree_ok == 1) {
@@ -876,6 +876,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			return true;
 		}
 		
+		$foundError2 = false;
+		
 		if($dataString !== false) {
 			$responseJson = $this->sendBoadiceaRequest($dataString);
 			
@@ -902,7 +904,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 					$tubalLigation, $endometriosis, $prsBC,$prsOC,$backupHistory);
 				
 				if($dataString2 !== false) {
-					$foundError2 = false;
 					$responseJson = $this->sendBoadiceaRequest($dataString2);
 					$response = json_decode($responseJson, true);
 					
