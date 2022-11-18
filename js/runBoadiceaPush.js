@@ -10,7 +10,7 @@
                 alert('Boadicea push completed');
                 location.reload();
             } else {
-                console.log('Something went wrong');
+                alert('Boadicea push failed');
             }
 		});
     }
