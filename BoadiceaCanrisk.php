@@ -101,7 +101,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$meTreeFile = false;
 		
 		foreach($recordData as $thisEvent) {
-			if($thisEvent["metree_import_complete"] == "2") {
+			if((int)$thisEvent["metree_import_json_file"] != "") {
 				$meTreeFile = (int)$thisEvent["metree_import_json_file"];
 			}
 		}
@@ -1002,7 +1002,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$dataString .= "##Endo=".$endometriosis."\n";
 		}
 		if($prsBC) {
-			$dataString .= "##PRS_BC=alpha=0.45&zscore=".$prsBC."\n";
+			$dataString .= "##PRS_BC=alpha=0.45, zscore=".$prsBC."\n";
 		}
 		if($prsOC) {
 			$dataString .= "##PRS_OC=".$prsOC."\n";
