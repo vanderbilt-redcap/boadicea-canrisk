@@ -117,7 +117,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			while($row = db_fetch_assoc($q)) {
 				$fileName = $row["stored_name"];
-				$meTreeData = file_get_contents(EDOC_PATH.$fileName);
+				$meTreeData = file_get_contents($this->getSafePath(EDOC_PATH.$fileName,EDOC_PATH));
 			}
 		}
 		
@@ -146,7 +146,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			while($row = db_fetch_assoc($q)) {
 				$fileName = $row["stored_name"];
-				$invitaeData = file_get_contents(EDOC_PATH.$fileName);
+				$invitaeData = file_get_contents($this->getSafePath(EDOC_PATH.$fileName),EDOC_PATH);
 			}
 		}
 		
@@ -175,7 +175,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			while($row = db_fetch_assoc($q)) {
 				$fileName = $row["stored_name"];
-				$broadData = file_get_contents(EDOC_PATH.$fileName);
+				$broadData = file_get_contents($this->getSafePath(EDOC_PATH.$fileName,EDOC_PATH));
 			}
 		}
 		
@@ -849,6 +849,11 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$history = implode("\t",$headers);
 		$backupHistory = implode("\t",$headers);
 		foreach($pedigreeData as $thisPerson) {
+			## If this person has an age, but not a Year of Birth, calculate YoB from Age
+			if($thisPerson["Age"] != 0 && $thisPerson["Yob"] == 0) {
+				$thisPerson["Yob"] = date("Y",strtotime("-".$thisPerson["Age"]." years"));
+			}
+			
 			$history .= "\n".implode("\t",$thisPerson);
 			
 			if($thisPerson["Target"] == 1) {
