@@ -549,7 +549,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 				
 				if($alcohol != "NA" && $alcohol != "0") {
-					$alcohol = round($alcohol * 10) / 10;
+					## Multiply by 14 for grams of alcohol in one drink
+					$alcohol = round($alcohol * 10 * 14) / 10;
 				}
 			}
 			
