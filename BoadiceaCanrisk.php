@@ -618,6 +618,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			"ATM" => "0:0",
 			"CHEK2" => "0:0",
 			"BARD1" => "0:0",
+			"RAD51D" => "0:0",
 			"RAD51C" => "0:0",
 			"BRIP1" => "0:0",
 			"ER:PR:HER2:CK14:CK56" => [0,0,0,0,0]
@@ -843,7 +844,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			"FamID","Name","Target","IndivID","FathID",
 			"MothID","Sex","MZtwin","Dead","Age","Yob",
 			"BC1","BC2","OC","PRO","PAN","Ashkn","BRCA1",
-			"BRCA2","PALB2","ATM","CHEK2","RAD51D","RAD51C",
+			"BRCA2","PALB2","ATM","CHEK2","BARD1","RAD51D","RAD51C",
 			"BRIP1","ER:PR:HER2:CK14:CK56"
 		];
 		
@@ -979,7 +980,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			return false;
 		}
 		
-		$dataString = "##CanRisk 1.0\n".
+		$dataString = "##CanRisk 2.0\n".
 			"##BMI=$bmi\n".
 			"##height=$height\n";
 		
