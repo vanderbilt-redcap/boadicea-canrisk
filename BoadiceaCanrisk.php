@@ -378,7 +378,12 @@ class BoadiceaCanrisk extends AbstractExternalModule
 
 	public function redcap_data_entry_form($project_id, $record, $instrument, $event_id, $group_id, $repeat_instance)
 	{
+		if(empty($record)) {
+			return;
+		}
+		
 		$recordData = $this->getRecordData($project_id,$record);
+		
 		list($age)  = $this->getPatientAgeAndDOB($recordData);
 		$sexAtBirth = $this->getPatientSex($recordData);
 		foreach($recordData as $thisEvent) {
