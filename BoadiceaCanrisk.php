@@ -18,11 +18,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$this->calcJuvenileBmiPercentile($project_id, $record);
 		}
 		
-		## Only run CanRisk calculations if adult
-		if($age >= 18) {
-			$this->runBoadiceaPush($project_id,$record);
-		}
-		
 		$chdPrs = false;
 		$bcPrs = false;
 		foreach($recordData as $thisEvent) {
@@ -41,6 +36,11 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		if($age >= 40) {
 			$this->runCHDCalc($project_id,$record);
+		}
+		
+		## Only run CanRisk calculations if adult
+		if($age >= 18) {
+			$this->runBoadiceaPush($project_id,$record);
 		}
 	}
 	
