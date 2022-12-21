@@ -310,7 +310,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			list($cs,$is) = $this->calculateChdPrs($age,$sex,$race,$chol,$hdl,$sbp,$hyper,$diabetes,$smoking,$prsScore);
 			
-			if($is || $cs) {
+			if(($is || $cs) && !is_nan($is)) {
 				$dataToSave = [
 					$this->getProject()->getRecordIdField() => $record,
 					"module_chd_int_score" => $is,
@@ -325,9 +325,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				if(is_array($results) && $results["errors"] && count($results["errors"]) > 0) {
 					error_log("Save data error: ".var_export($results,true));
 				}
-				else if(!is_array($results)) {
-					error_log("Save data error (I THINK): ".var_export($results,true));
-				}
 			}
 		}
 		else {
@@ -339,7 +336,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		## If we have all the data, run the calc and save to REDCap
 		if(($age !== false) && ($sex !== false) && ($race !== false) &&
-				($chol !== false) && ($hdl !== false) && ($sbp !== false) &&
+				($chol != 0) && ($hdl != 0) && ($sbp != 0) &&
 				($diabetes !== -1) && ($smoking !== -1) && $prsScore !== false) {
 			$smoking = $smoking ? 1 : 0;
 			$diabetes = $diabetes ? 1 : 0;
@@ -378,7 +375,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$hr = $raceHr[$race];
 			
 			$product = array_map(function($x,$y) {return $x * $y;},$coefficient,$values);
-//			echo "\n<br />Prod: ".var_export($product,true)." Mean: $mean Surv: $survival\n<br />";
+			//echo "\n<br />Prod: ".var_export($product,true)." Mean: $mean Surv: $survival\n<br />";
 			$cs = 1 - (pow($survival,exp(array_sum($product) - $mean)));
 			$is = 1 - (pow($survival,exp(array_sum($product) - $mean + $prsScore * log($hr))));
 			
