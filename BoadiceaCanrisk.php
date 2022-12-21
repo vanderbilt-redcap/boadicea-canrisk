@@ -424,7 +424,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$mhtUse = false;
 		$alcohol = false;
 		$meTreeSignOff = false;
-		$previousBoadiceaString = false;
+		$previousBoadiceaString = "";
 		
 		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
 		list($age,$dob) = $this->getPatientAgeAndDOB($recordData);
@@ -818,8 +818,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$firstBirth = floor(($firstBirth - $dobTs) / 365.25 / 24 / 60 / 60);
 			}
 			
-			## TODO Haven't found any BRCA or other genetic testing examples in MeTree test data
-			
 			$pedigreeData[] = $thisPerson;
 		}
 		
@@ -884,7 +882,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$tubalLigation, $endometriosis, $prsBC,$prsOC,$history);
 		
 		## BOADICEA data hasn't changed for this patient, don't re-send BOADICEA
-		if($previousBoadiceaString && $dataString == $previousBoadiceaString) {
+		$previousBoadiceaString = str_replace(["\r","\n"],["",""],$previousBoadiceaString);
+		$dataStringForComp = str_replace(["\r","\n"],["",""],$dataString);
+		
+		if($previousBoadiceaString && $dataStringForComp == $previousBoadiceaString) {
 			return true;
 		}
 		
