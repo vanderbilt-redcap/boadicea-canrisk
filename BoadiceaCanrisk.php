@@ -310,21 +310,25 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			list($cs,$is) = $this->calculateChdPrs($age,$sex,$race,$chol,$hdl,$sbp,$hyper,$diabetes,$smoking,$prsScore);
 			
-			$dataToSave = [
-				$this->getProject()->getRecordIdField() => $record,
-				"module_chd_int_score" => $is,
-				"module_chd_clinic_score" => $cs
-			];
-			$results = \REDCap::saveData([
-				"dataFormat" => "json",
-				"data" => json_encode([$dataToSave]),
-				"project_id" => $project_id
-			]);
-			
-			if($results["errors"] && count($results["errors"]) > 0) {
-				error_log("Save data error: ".var_export($results,true));
+			if($is || $cs) {
+				$dataToSave = [
+					$this->getProject()->getRecordIdField() => $record,
+					"module_chd_int_score" => $is,
+					"module_chd_clinic_score" => $cs
+				];
+				$results = \REDCap::saveData([
+					"dataFormat" => "json",
+					"data" => json_encode([$dataToSave]),
+					"project_id" => $project_id
+				]);
+				
+				if(is_array($results) && $results["errors"] && count($results["errors"]) > 0) {
+					error_log("Save data error: ".var_export($results,true));
+				}
+				else if(!is_array($results)) {
+					error_log("Save data error (I THINK): ".var_export($results,true));
+				}
 			}
-			
 		}
 		else {
 //			error_log("Doesn't qualify for CHD: $age ~ $prsScore");
