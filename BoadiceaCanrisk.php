@@ -209,6 +209,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				else {
 					## Unset the record cache so PRS is pulled in for future calculations
 					unset(self::$recordCache[$record]);
+					$this->getRecordData($project_id, $record);
 				}
 			}
 			if($thisCondition["condition"]["display"] == "breast cancer") {
@@ -229,6 +230,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				else {
 					## Unset the record cache so PRS is pulled in for future calculations
 					unset(self::$recordCache[$record]);
+					$this->getRecordData($project_id, $record);
 				}
 			}
 		}
