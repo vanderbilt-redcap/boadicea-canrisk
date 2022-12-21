@@ -206,6 +206,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				if($results["errors"] && count($results["errors"]) > 0) {
 					error_log("Save data error: ".var_export($results,true));
 				}
+				else {
+					## Unset the record cache so PRS is pulled in for future calculations
+					unset(self::$recordCache[$record]);
+				}
 			}
 			if($thisCondition["condition"]["display"] == "breast cancer") {
 				$prsScore = $thisCondition["prs_score"];
@@ -221,6 +225,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				
 				if($results["errors"] && count($results["errors"]) > 0) {
 					error_log("Save data error: ".var_export($results,true));
+				}
+				else {
+					## Unset the record cache so PRS is pulled in for future calculations
+					unset(self::$recordCache[$record]);
 				}
 			}
 		}
