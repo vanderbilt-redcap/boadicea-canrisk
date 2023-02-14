@@ -873,7 +873,13 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			$history .= "\n".implode("\t",$thisPerson);
 			
 			if($thisPerson["Target"] == 1) {
-				$backupHistory .= "\n".implode("\t",$thisPerson);
+				$alternateSelf = [];
+				foreach($thisPerson as $index => $value) {
+					$alternateSelf[$index] = $value;
+				}
+				$alternateSelf["MothId"] = "0";
+				$alternateSelf["FathId"] = "0";
+				$backupHistory .= "\n".implode("\t",$alternateSelf);
 			}
 		}
 		
