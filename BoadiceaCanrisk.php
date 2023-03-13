@@ -687,7 +687,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 			}
 			else {
-				$thisPerson["Name"] = substr($thisRow["firstName"],0,7);
+				$thisPerson["Name"] = substr(str_replace(" ","", $thisRow["firstName"]),0,7);
 			}
 			
 			if($thisRow["relation"] == "SELF") {
