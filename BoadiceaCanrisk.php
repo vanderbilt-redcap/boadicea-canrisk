@@ -670,7 +670,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$thisPerson[$thisField] = $thisValue;
 			}
 			
-			$thisPerson["Sex"] = ($thisRow["gender"] == "female" ? "F" : "M");
+			$thisPerson["Sex"] = ($thisRow["gender"] == "female" ? "F" : ($thisRow["gender"] == "null" ? "0" : "M"));
 			
 			if($thisRow["firstName"] == "") {
 				$thisPerson["Name"] = substr($thisRow["uuid"],0,7);
@@ -692,6 +692,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			
 			if($thisRow["relation"] == "SELF") {
 				$thisPerson["Target"] = 1;
+				$thisPerson["Sex"] = "F";
 				$thisPerson["BRCA1"] = "T:N";
 				$thisPerson["BRCA2"] = "T:N";
 				$thisPerson["PALB2"] = "T:N";
