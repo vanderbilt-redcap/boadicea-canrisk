@@ -478,19 +478,19 @@ class BoadiceaCanrisk extends AbstractExternalModule
 					}
 					switch($thisEvent["how_many_years_have_you_ta"]) {
 						case 1:
-							$ocUse .= "1";
+							$ocUse .= ":1";
 							break;
 						case 2:
-							$ocUse .= "3";
+							$ocUse .= ":3";
 							break;
 						case 3:
-							$ocUse .= "7";
+							$ocUse .= ":7";
 							break;
 						case 4:
-							$ocUse .= "13";
+							$ocUse .= ":13";
 							break;
 						case 5:
-							$ocUse .= "15";
+							$ocUse .= ":15";
 							break;
 					}
 				}
@@ -1014,7 +1014,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		if($alcohol) {
 			$dataString .= "##alcohol=$alcohol\n";
 		}
-		if($parity) {
+		if($parity !== false) {
 			$dataString .= "##parity=$parity\n";
 		}
 		if($firstBirth) {
@@ -1050,7 +1050,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$pedigreeData = str_replace("\t","\\t",$pedigreeData);
 		
 		## TODO user_id needs to be project setting
-		$data = '{"mut_freq":"UK","cancer_rates":"UK","user_id":"mcguffk","pedigree_data":"'.$pedigreeData.'"}';
+		$data = '{"mut_freq":"USA","cancer_rates":"USA","user_id":"mcguffk","pedigree_data":"'.$pedigreeData.'"}';
 		
 		$apiUrl = $this->getProjectSetting("api-url");
 		$apiToken = $this->getProjectSetting("auth-token");
