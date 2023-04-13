@@ -101,7 +101,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$meTreeFile = false;
 		
 		foreach($recordData as $thisEvent) {
-			if((int)$thisEvent["metree_import_json_file"] != "") {
+			if(((int)$thisEvent["metree_import_json_file"]) != 0) {
 				$meTreeFile = (int)$thisEvent["metree_import_json_file"];
 			}
 		}
@@ -1050,7 +1050,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$pedigreeData = str_replace("\t","\\t",$pedigreeData);
 		
 		## TODO user_id needs to be project setting
-		$data = '{"mut_freq":"USA","cancer_rates":"USA","user_id":"mcguffk","pedigree_data":"'.$pedigreeData.'"}';
+		$data = '{"mut_freq":"UK","cancer_rates":"USA","user_id":"mcguffk","pedigree_data":"'.$pedigreeData.'"}';
 		
 		$apiUrl = $this->getProjectSetting("api-url");
 		$apiToken = $this->getProjectSetting("auth-token");
