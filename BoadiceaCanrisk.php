@@ -429,6 +429,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$firstBirth = false;
 		$tubalLigation = false;
 		$endometriosis = false;
+		$menopause = false;
 		$ocUse = false;
 		$prsBC = false;
 		$prsOC = false;
@@ -495,15 +496,36 @@ class BoadiceaCanrisk extends AbstractExternalModule
 					}
 				}
 			}
+			
+			if($thisEvent["periods_stopped_completely"] != "1" && $thisEvent["age_periods_stopped"] != "") {
+				switch($thisEvent["age_periods_stopped"]) {
+					case 1:
+						$menopause = "39";
+						break;
+					case 2:
+						$menopause = "42";
+						break;
+					case 3:
+						$menopause = "47";
+						break;
+					case 4:
+						$menopause = "52";
+						break;
+					case 5:
+						$menopause = "55";
+						break;
+				}
+			}
+			
 			if($thisEvent["hrt_for_menopause"] != "") {
 				switch($thisEvent["hrt_for_menopause"]) {
 					case 1:
 						$mhtUse = "N";
 						break;
 					case 2:
+					case 3:
 						$mhtUse = "F";
 						break;
-					case 3:
 					case 4:
 						if($thisEvent["type_of_hrt"] == "1") {
 							$mhtUse = "E";
@@ -897,7 +919,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		$dataString = $this->compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
 			$mhtUse, $weight, $bmi, $alcohol, $height,
-			$tubalLigation, $endometriosis, $prsBC,$prsOC,$history);
+			$tubalLigation, $endometriosis, $prsBC,$prsOC,$menopause,$history);
 		
 		## BOADICEA data hasn't changed for this patient, don't re-send BOADICEA
 		$previousBoadiceaString = str_replace(["\r","\n"],["",""],$previousBoadiceaString);
@@ -932,7 +954,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			if($foundError) {
 				$dataString2 = $this->compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
 					$mhtUse, $weight, $bmi, $alcohol, $height,
-					$tubalLigation, $endometriosis, $prsBC,$prsOC,$backupHistory);
+					$tubalLigation, $endometriosis, $prsBC,$prsOC,$menopause,$backupHistory);
 				
 				if($dataString2 !== false) {
 					$responseJson = $this->sendBoadiceaRequest($dataString2);
@@ -999,7 +1021,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 	
 	public function compressRecordDataForBoadicea($dob, $menarche, $parity, $firstBirth, $ocUse,
 												  $mhtUse, $weight, $bmi, $alcohol, $height,
-												  $tubalLigation, $endometriosis, $prsBC, $prsOC, $history) {
+												  $tubalLigation, $endometriosis, $prsBC, $prsOC, $menopause, $history) {
 		if($dob === false || $weight === false || $height === false) {
 			return false;
 		}
@@ -1028,6 +1050,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		}
 		if($tubalLigation) {
 			$dataString .= "##TL=".$tubalLigation."\n";
+		}
+		if($menopause) {
+			$dataString .= "##Menopause=".$menopause."\n";
 		}
 		if($endometriosis) {
 			$dataString .= "##Endo=".$endometriosis."\n";
