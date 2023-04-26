@@ -436,7 +436,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$mhtUse = false;
 		$alcohol = false;
 		$meTreeSignOff = false;
-		$ashkenazi = false
+		$ashkenazi = false;
 		$previousBoadiceaString = "";
 		
 		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
@@ -869,9 +869,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			if($thisRow["relation"] != "SELF" && $thisPerson["Age"] == 0 && $thisRow['medicalHistory'] != 'unknown') {
 				switch($thisRow["relation"]){
 					case "SON": 
-						$thisPerson["Age"] = $targetAge - 25); break;
+						$thisPerson["Age"] = $targetAge - 25; break;
 					case "DAU":
-						$thisPerson["Age"] = $targetAge - 25); break;
+						$thisPerson["Age"] = $targetAge - 25; break;
 					case "NSIS":
 						$thisPerson["Age"] = $targetAge; break;
 					case "NBRO":
@@ -901,8 +901,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 
 			## exclude individuls with medicalhistory unknown.
 			if($thisRow["relation"] != "SELF" && $thisRow['medicalHistory'] == 'unknown'){
-				$thisPerson["Age"] = 0
-				$thisPerson["Yob"] = 0
+				$thisPerson["Age"] = 0;
+				$thisPerson["Yob"] = 0;
 			}
 
 			## If this person has an age, but not a Year of Birth, calculate YoB from Age
