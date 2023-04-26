@@ -691,7 +691,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 
 		## find target age first
 		$targetAge = 0;
-		for($metreeJson as $thisRow){
+		foreach($metreeJson as $thisRow) {
 			if($thisRow["relation"] == "SELF"){
 				$targetAge = $thisRow["age"];
 			}
