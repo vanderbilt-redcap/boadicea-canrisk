@@ -436,6 +436,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$mhtUse = false;
 		$alcohol = false;
 		$meTreeSignOff = false;
+		$ashkenazi = false
 		$previousBoadiceaString = "";
 		
 		list($height, $weight, $bmi) = $this->extractHeightWeightBmi($recordData);
@@ -595,6 +596,9 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			if($thisEvent["metree_ok"] == 1) {
 				$meTreeSignOff = true;
 			}
+			if($thisEvent['ashkenazi_jewish_ancestors'] == 1){
+				$ashkenazi = true;
+			}
 		}
 		
 		## Test MeTree file
@@ -684,6 +688,14 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		$foundError = false;
 		$boadiceaErrors = "";
+
+		## find target age first
+		$targetAge = 0;
+		for($metreeJson as $thisRow){
+			if($thisRow["relation"] == "SELF"){
+				$targetAge = $thisRow["age"];
+			}
+		}
 		
 		foreach($meTreeJson as $thisRow) {
 			$thisPerson = [];
@@ -786,16 +798,31 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			if($thisRow["birthDate"] != "" && ((int)substr($thisRow["birthDate"],0,4)) != "") {
 				$thisPerson["Yob"] = (int)substr($thisRow["birthDate"],0,4);
 			}
-			
+
+			## check Yob and age is aligned with each other. If not aligned, use Age later to calculate Yob.
+			if($thisPerson["Age"] != 0 && $thisPerson["Yob"] != 0) {
+				$age = date("Y") - $thisPerson["Yob"];
+				# allow 1 year difference
+				if($age > $thisPerson["Age"] + 1 || $age < $thisPerson["Age"] - 1) {
+					$thisPerson["Yob"] = 0;
+				}
+			}
+
+			## If this person has a Year of Birth, but not an age, calculate Age from YoB
+			if($thisPerson["Age"] == 0 && $thisPerson["Yob"] != 0) {
+				$thisPerson["Age"] = date("Y") - $thisPerson["Yob"];
+			}
+
+			## Impute age if unknown by using age at latest diagnosis
 			foreach($thisRow["conditions"] as $thisCondition) {
-				$ageAtCondition = (int)$thisCondition["age"];
+				$ageAtCondition = (int)$thisCondition["age"]; // this could be 0 if age is unknown
 				
 				## BOADICEA Error, If age is less than diagnosis age, move up to age at diagnosis
 				if($ageAtCondition && $thisPerson["Age"] < $ageAtCondition) {
 					$thisPerson["Age"] = $ageAtCondition;
 				}
 				
-				if($thisCondition["ageUnknown"] || $ageAtCondition == "") {
+				if($thisCondition["ageUnknown"] || $ageAtCondition == 0) {
 					$ageAtCondition = "AU";
 				}
 				
@@ -834,10 +861,62 @@ class BoadiceaCanrisk extends AbstractExternalModule
 					$thisPerson["PAN"] = $ageAtCondition;
 				}
 			}
+
+			
+
+			## Impute age based on relationship if it is still missing after imputing using Yob and latest diagnosis age
+			## Only consider core relatives including parents, siblings, sons/daughters and grandparents.
+			if($thisRow["relation"] != "SELF" && $thisPerson["Age"] == 0 && $thisRow['medicalHistory'] != 'unknown') {
+				switch($thisRow["relation"]){
+					case "SON": 
+						$thisPerson["Age"] = $targetAge - 25); break;
+					case "DAU":
+						$thisPerson["Age"] = $targetAge - 25); break;
+					case "NSIS":
+						$thisPerson["Age"] = $targetAge; break;
+					case "NBRO":
+						$thisPerson["Age"] = $targetAge; break; 
+					case "NMTH":
+						$thisPerson["Age"] = $targetAge + 25; break; 
+					case "NFTH":
+						$thisPerson["Age"] = $targetAge + 25; break;
+					case "MGRMTH":
+						$thisPerson["Age"] = $targetAge + 50; break;
+					case "MGRFTH":
+						$thisPerson["Age"] = $targetAge + 50; break; 
+					case "MGRMTH":
+						$thisPerson["Age"] = $targetAge + 50; break; 
+					case "PGRFTH":
+						$thisPerson["Age"] = $targetAge + 50; break; 
+					case "PGRMTH":
+						$thisPerson["Age"] = $targetAge + 50; break; 
+				}
+			}
+
+			## check the age is valid.
+			if($thisPerson["Age"] < 0) {
+				$thisPerson["Age"] = 0;
+				$thisPerson["Yob"] = 0;
+			}
+
+			## exclude individuls with medicalhistory unknown.
+			if($thisRow["relation"] != "SELF" && $thisRow['medicalHistory'] == 'unknown'){
+				$thisPerson["Age"] = 0
+				$thisPerson["Yob"] = 0
+			}
+
+			## If this person has an age, but not a Year of Birth, calculate YoB from Age
+			if($thisPerson["Age"] != 0 && $thisPerson["Yob"] == 0) {
+				$thisPerson["Yob"] = date("Y",strtotime("-".$thisPerson["Age"]." years"));
+			}			
 			
 			if(is_array($thisRow["ethnicity"])) {
 				foreach($thisRow["ethnicity"] as $thisEthnicity) {
 					if($thisEthnicity == "Ashkenazi Jewish") {
+						$thisPerson["Ashkn"] = 1;
+					}
+					// pull redcap survey results
+					if($thisRow["relation"] == "SELF" && $ashkenazi){
 						$thisPerson["Ashkn"] = 1;
 					}
 				}
@@ -888,11 +967,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		$history = implode("\t",$headers);
 		$backupHistory = implode("\t",$headers);
 		foreach($pedigreeData as $thisPerson) {
-			## If this person has an age, but not a Year of Birth, calculate YoB from Age
-			if($thisPerson["Age"] != 0 && $thisPerson["Yob"] == 0) {
-				$thisPerson["Yob"] = date("Y",strtotime("-".$thisPerson["Age"]." years"));
-			}
-			
+
+
 			$history .= "\n".implode("\t",$thisPerson);
 			
 			if($thisPerson["Target"] == 1) {
