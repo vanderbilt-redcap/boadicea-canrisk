@@ -827,11 +827,22 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 				
 				if($thisCondition["id"] == "breast_cancer") {
+					
+					// fix the sequence age at BC1 should less than BC2
 					if($thisPerson["BC1"] == 0) {
+						// first BC Dx.
 						$thisPerson["BC1"] = $ageAtCondition;
 					}
-					elseif($thisPerson["BC2"] == 0) {
-						$thisPerson["BC2"] = $ageAtCondition;
+					elseif($thisPerson["BC1"] == 'AU' && is_int($ageAtCondition)){
+						$thisPerson["BC1"] = $ageAtCondition;
+					}
+					elseif($thisPerson["BC1"] != 'AU' && is_int($ageAtCondition) ){
+						if($ageAtCondition < $thisPerson["BC1"]) {
+							$thisPerson["BC2"] = $thisPerson["BC1"];
+							$thisPerson["BC1"] = $ageAtCondition;
+						}else{
+							$thisPerson["BC2"] = $ageAtCondition;
+						}
 					}
 				}
 				
@@ -894,9 +905,15 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 
 			## check the age is valid.
-			if($thisPerson["Age"] < 0) {
+			if($thisPerson["Age"] < 1) {
 				$thisPerson["Age"] = 0;
 				$thisPerson["Yob"] = 0;
+			}
+
+			# The age specified for family member {uid}​ has unexpected characters. Ages must be specified with as '0' for unknown, or in the range 1-125
+			if($thisPerson["Age"] >= 125) {
+				$thisPerson["Age"] = 124;
+				$thisPerson["Yob"] = 0; // reset Yob if age is invalid
 			}
 
 			## exclude individuls with medicalhistory unknown.
