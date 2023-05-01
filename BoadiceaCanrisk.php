@@ -791,8 +791,15 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 			
 			## BOADICEA Error, age must be an integer
-			if(((int)$thisRow["age"]) != "") {
-				$thisPerson["Age"] = (int)$thisRow["age"];
+			$thisPerson["Age"] = (int)$thisRow["age"];
+
+			## If this person is the participant, double check age from MeTree vs age from R4
+			if($thisRow["relation"] == "SELF") {
+				# allow 1 year difference
+				if (abs($thisPerson["Age"] - $age) > 1) {
+					# Assume the age specified in R4 more likely to be correct
+					$thisPerson["Age"] = $age;
+				}
 			}
 			
 			if($thisRow["birthDate"] != "" && ((int)substr($thisRow["birthDate"],0,4)) != "") {
@@ -817,9 +824,15 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			foreach($thisRow["conditions"] as $thisCondition) {
 				$ageAtCondition = (int)$thisCondition["age"]; // this could be 0 if age is unknown
 				
-				## BOADICEA Error, If age is less than diagnosis age, move up to age at diagnosis
+				## BOADICEA Error, If condition age is less than diagnosis age
 				if($ageAtCondition && $thisPerson["Age"] < $ageAtCondition) {
-					$thisPerson["Age"] = $ageAtCondition;
+					if($thisRow["relation"] == "SELF") {
+						## When this is the participant, move condition age down since age checked against R4
+						$ageAtCondition = $thisPerson["Age"]; 
+					} else {
+						## Move up to age at diagnosis
+						$thisPerson["Age"] = $ageAtCondition;
+					}					
 				}
 				
 				if($thisCondition["ageUnknown"] || $ageAtCondition == 0) {
