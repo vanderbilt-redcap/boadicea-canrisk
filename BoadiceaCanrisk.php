@@ -798,7 +798,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				# allow 1 year difference
 				if (abs($thisPerson["Age"] - $age) > 1) {
 					# Assume the age specified in R4 more likely to be correct
-					$thisPerson["Age"] = $age;
+					$thisPerson["Age"] = round($age);
 				}
 			}
 			
