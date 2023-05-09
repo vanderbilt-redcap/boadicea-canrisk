@@ -498,7 +498,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 			}
 			
-			if($thisEvent["periods_stopped_completely"] != "1" && $thisEvent["age_periods_stopped"] != "") {
+			if($thisEvent["periods_stopped_completely"] == "1" && $thisEvent["age_periods_stopped"] != "") {
 				switch($thisEvent["age_periods_stopped"]) {
 					case 1:
 						$menopause = "39";
@@ -750,7 +750,8 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$thisPerson["MothID"] = substr($thisRow["mother"],0,7);
 				
 				## If this is a child of the main person
-				if($thisPerson["MothID"] == $thisPerson["FamID"] && $thisPerson["birthDate"]) {
+				## Bug fixed by using $dob.
+				if($thisPerson["MothID"] == $thisPerson["FamID"] && $dob) {
 					if($firstBirth === false || strtotime($thisRow["birthDate"]) < $firstBirth) {
 						$firstBirth = strtotime($thisRow["birthDate"]);
 					}
