@@ -498,7 +498,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 			}
 			
-			if($thisEvent["periods_stopped_completely"] != "1" && $thisEvent["age_periods_stopped"] != "") {
+			if($thisEvent["periods_stopped_completely"] == "1" && $thisEvent["age_periods_stopped"] != "") {
 				switch($thisEvent["age_periods_stopped"]) {
 					case 1:
 						$menopause = "39";
@@ -792,8 +792,15 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 			
 			## BOADICEA Error, age must be an integer
-			if(((int)$thisRow["age"]) != "") {
-				$thisPerson["Age"] = (int)$thisRow["age"];
+			$thisPerson["Age"] = (int)$thisRow["age"];
+
+			## If this person is the participant, double check age from MeTree vs age from R4
+			if($thisRow["relation"] == "SELF") {
+				# allow 1 year difference
+				if (abs($thisPerson["Age"] - $age) > 1) {
+					# Assume the age specified in R4 more likely to be correct
+					$thisPerson["Age"] = round($age);
+				}
 			}
 			
 			if($thisRow["birthDate"] != "" && ((int)substr($thisRow["birthDate"],0,4)) != "") {
@@ -818,9 +825,15 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			foreach($thisRow["conditions"] as $thisCondition) {
 				$ageAtCondition = (int)$thisCondition["age"]; // this could be 0 if age is unknown
 				
-				## BOADICEA Error, If age is less than diagnosis age, move up to age at diagnosis
+				## BOADICEA Error, If condition age is less than diagnosis age
 				if($ageAtCondition && $thisPerson["Age"] < $ageAtCondition) {
-					$thisPerson["Age"] = $ageAtCondition;
+					if($thisRow["relation"] == "SELF") {
+						## When this is the participant, move condition age down since age checked against R4
+						$ageAtCondition = $thisPerson["Age"]; 
+					} else {
+						## Move up to age at diagnosis
+						$thisPerson["Age"] = $ageAtCondition;
+					}					
 				}
 				
 				if($thisCondition["ageUnknown"] || $ageAtCondition == 0) {
@@ -828,11 +841,22 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 				
 				if($thisCondition["id"] == "breast_cancer") {
+					
+					// fix the sequence age at BC1 should less than BC2
 					if($thisPerson["BC1"] == 0) {
+						// first BC Dx.
 						$thisPerson["BC1"] = $ageAtCondition;
 					}
-					elseif($thisPerson["BC2"] == 0) {
-						$thisPerson["BC2"] = $ageAtCondition;
+					elseif($thisPerson["BC1"] == 'AU' && is_int($ageAtCondition)){
+						$thisPerson["BC1"] = $ageAtCondition;
+					}
+					elseif($thisPerson["BC1"] != 'AU' && is_int($ageAtCondition) ){
+						if($ageAtCondition < $thisPerson["BC1"]) {
+							$thisPerson["BC2"] = $thisPerson["BC1"];
+							$thisPerson["BC1"] = $ageAtCondition;
+						}else{
+							$thisPerson["BC2"] = $ageAtCondition;
+						}
 					}
 				}
 				
@@ -895,9 +919,15 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 
 			## check the age is valid.
-			if($thisPerson["Age"] < 0) {
+			if($thisPerson["Age"] < 1) {
 				$thisPerson["Age"] = 0;
 				$thisPerson["Yob"] = 0;
+			}
+
+			# The age specified for family member {uid}​ has unexpected characters. Ages must be specified with as '0' for unknown, or in the range 1-125
+			if($thisPerson["Age"] >= 125) {
+				$thisPerson["Age"] = 124;
+				$thisPerson["Yob"] = 0; // reset Yob if age is invalid
 			}
 
 			## exclude individuls with medicalhistory unknown.
