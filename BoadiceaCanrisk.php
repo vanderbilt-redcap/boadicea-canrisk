@@ -498,7 +498,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 			}
 			
-			if($thisEvent["periods_stopped_completely"] != "1" && $thisEvent["age_periods_stopped"] != "") {
+			if($thisEvent["periods_stopped_completely"] == "1" && $thisEvent["age_periods_stopped"] != "") {
 				switch($thisEvent["age_periods_stopped"]) {
 					case 1:
 						$menopause = "39";
