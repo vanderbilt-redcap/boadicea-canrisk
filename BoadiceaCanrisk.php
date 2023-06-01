@@ -294,14 +294,14 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				if($thisEvent["type_1_diabetes___1"] !== "") {
 					$diabetes = ($diabetes === true) || ($thisEvent["type_1_diabetes___1"] == "1");
 				}
-				if($thisEvent["type_1_diabetes_3___1"] !== "") {
-					$diabetes = ($diabetes === true) || ($thisEvent["type_1_diabetes_3___1"] == "1");
+				if($thisEvent["type_1_diabetes_2___1"] !== "") {
+					$diabetes = ($diabetes === true) || ($thisEvent["type_1_diabetes_2___1"] == "1");
 				}
 				if($thisEvent["type_2_diabetes___1"] !== "") {
 					$diabetes = ($diabetes === true) || ($thisEvent["type_2_diabetes___1"] == "1");
 				}
-				if($thisEvent["type_2_diabetes_3___1"] !== "") {
-					$diabetes = ($diabetes === true) || ($thisEvent["type_2_diabetes_3___1"] == "1");
+				if($thisEvent["type_2_diabetes_2___1"] !== "") {
+					$diabetes = ($diabetes === true) || ($thisEvent["type_2_diabetes_2___1"] == "1");
 				}
 				if($thisEvent["smoked_100_more_cigarettes"] !== "") {
 					$smoking = ($thisEvent["smoked_100_more_cigarettes"] == "1" && ($thisEvent["now_smoke"] == "1" || $thisEvent["now_smoke"] == "2"));
