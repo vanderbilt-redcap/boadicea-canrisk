@@ -752,9 +752,28 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				## If this is a child of the main person
 				## Bug fixed by using $dob.
 				if($thisPerson["MothID"] == $thisPerson["FamID"] && $dob) {
-					if($firstBirth === false || strtotime($thisRow["birthDate"]) < $firstBirth) {
-						$firstBirth = strtotime($thisRow["birthDate"]);
+					
+					## error can occur if $thisRow["birthDate"] is null.
+					## Calc age at first birth by comparing oldest child DOB to person DOB
+
+					if($thisRow["birthDate"] != ""){
+						$firstBirthDateT = strtotime($thisRow["birthDate"]);
+						$dobTs = strtotime($dob);
+						$thisFirstBirth = floor(($firstBirthDateT - $dobTs) / 365.25 / 24 / 60 / 60);
+
+						if($firstBirth === false || $thisFirstBirth < $firstBirth) {
+							$firstBirth = $thisFirstBirth;
+						}
 					}
+					else{
+						if($thisRow["age"] != ""){
+							$thisFirstBirth = $targetAge - $thisRow["age"];
+							if($firstBirth === false || $thisFirstBirth < $firstBirth) {
+								$firstBirth = $thisFirstBirth;
+							}
+						}
+					}
+					
 				}
 			}
 			
@@ -953,15 +972,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				}
 			}
 			
-			$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);
-			
-			## Calc age at first birth by comparing oldest child DOB to person DOB
-			if($firstBirth) {
-				$dobTs = strtotime($dob);
-				
-				$firstBirth = floor(($firstBirth - $dobTs) / 365.25 / 24 / 60 / 60);
-			}
-			
+			$thisPerson["ER:PR:HER2:CK14:CK56"] = implode(":",$thisPerson["ER:PR:HER2:CK14:CK56"]);			
 			$pedigreeData[] = $thisPerson;
 		}
 		
