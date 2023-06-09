@@ -751,7 +751,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				
 				## If this is a child of the main person
 				## Bug fixed by using $dob.
-				if($thisPerson["MothID"] == $thisPerson["FamID"] && $dob) {
+				if($thisPerson["MothID"] == $thisPerson["FamId"] && $dob) {
 					
 					## error can occur if $thisRow["birthDate"] is null.
 					## Calc age at first birth by comparing oldest child DOB to person DOB

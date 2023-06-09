@@ -23,9 +23,9 @@
   	"links" : {
 	  "project": [
 		{
-		  "url":"test.php",
+		  "url":"test_boadicea.php",
 		  "icon":"",
-		  "name":"Test"
+		  "name":"Test Send to BOADICEA"
 		}
 	  ],
 	  "control-center": [
