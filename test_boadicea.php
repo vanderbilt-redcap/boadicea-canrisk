@@ -10,7 +10,7 @@ if($score) {
 	$response = json_decode($score, true);
 	echo "<h2>Result from BOADICEA</h2>";
 	
-	$boadiceaErrors = [];
+	$boadiceaErrors = "";
 	
 	foreach($response as $responseKey => $responseRow) {
 		if(strpos($responseKey,"Error") !== false) {
@@ -19,7 +19,7 @@ if($score) {
 		}
 	}
 	
-	if(count($boadiceaErrors) > 0) {
+	if($boadiceaErrors != "") {
 		echo "<br /><pre>";
 		var_dump($boadiceaErrors);
 		echo "</pre><br />";
