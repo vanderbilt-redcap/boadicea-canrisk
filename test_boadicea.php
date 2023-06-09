@@ -32,7 +32,7 @@ if($score) {
 ?>
 <form method="post">
 	<div style="width:100%;">
-		<textarea name='testBoadicea' class='notesbox' style="height:400px"><?=$_POST['testBoadicea']?></textarea>
+		<textarea name='testBoadicea' class='notesbox' style="height:400px"><?=htmlspecialchars($_POST['testBoadicea'],ENT_QUOTES)?></textarea>
 	</div>
 	<input type="submit" />
 </form>
