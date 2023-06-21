@@ -691,7 +691,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 
 		## find target age first
 		$targetAge = 0;
-		foreach($metreeJson as $thisRow) {
+		foreach($meTreeJson as $thisRow) {
 			if($thisRow["relation"] == "SELF"){
 				$targetAge = $thisRow["age"];
 			}
@@ -765,12 +765,10 @@ class BoadiceaCanrisk extends AbstractExternalModule
 							$firstBirth = $thisFirstBirth;
 						}
 					}
-					else{
-						if($thisRow["age"] != ""){
-							$thisFirstBirth = $targetAge - $thisRow["age"];
-							if($firstBirth === false || $thisFirstBirth < $firstBirth) {
-								$firstBirth = $thisFirstBirth;
-							}
+					else if($thisRow["age"] != "" && $targetAge != 0) {
+						$thisFirstBirth = ($targetAge - $thisRow["age"]);
+						if($firstBirth === false || $thisFirstBirth < $firstBirth) {
+							$firstBirth = $thisFirstBirth;
 						}
 					}
 					
