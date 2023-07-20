@@ -908,7 +908,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 
 			## Impute age based on relationship if it is still missing after imputing using Yob and latest diagnosis age
 			## Only consider core relatives including parents, siblings, sons/daughters and grandparents.
-			if($thisRow["relation"] != "SELF" && $thisPerson["Age"] == 0 && $thisRow['medicalHistory'] != 'unknown') {
+			if($thisRow["relation"] != "SELF" && $thisPerson["Age"] == 0 && ($thisRow['medicalHistory'] == 'healthy' || !empty($thisRow['conditions']))) {
 				switch($thisRow["relation"]){
 					case "SON": 
 						$thisPerson["Age"] = $targetAge - 25; break;
@@ -948,7 +948,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 			}
 
 			## exclude individuls with medicalhistory unknown.
-			if($thisRow["relation"] != "SELF" && $thisRow['medicalHistory'] == 'unknown'){
+			if($thisRow["relation"] != "SELF" && ($thisRow['medicalHistory'] != 'healthy' && empty($thisRow['conditions']))){
 				$thisPerson["Age"] = 0;
 				$thisPerson["Yob"] = 0;
 			}
