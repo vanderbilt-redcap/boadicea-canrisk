@@ -444,7 +444,7 @@ class BoadiceaCanrisk extends AbstractExternalModule
 		
 		foreach($recordData as $thisEvent) {
 			if($thisEvent["age_first_period"] != "") {
-				$menarche = $thisEvent["age_first_period"];
+				$menarche = intval($thisEvent["age_first_period"]);
 			}
 			if($thisEvent["boadicea_pedigree_string"] != "") {
 				$previousBoadiceaString = $thisEvent["boadicea_pedigree_string"] ;
