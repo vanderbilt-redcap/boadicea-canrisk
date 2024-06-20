@@ -838,12 +838,43 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				$thisPerson["Age"] = date("Y") - $thisPerson["Yob"];
 			}
 
+			## Impute age based on relationship first if it is still missing after imputing using Yob and latest diagnosis age
+			## Only consider core relatives including parents, siblings, sons/daughters and grandparents.
+			## This has to be imputed before using age at diagnosis for imputation. o/w, it will cause parent's age younger than child's age.
+			if($thisRow["relation"] != "SELF" && $thisPerson["Age"] == 0 && ($thisRow['medicalHistory'] == 'healthy' || !empty($thisRow['conditions']))) {
+				switch($thisRow["relation"]){
+					case "SON": 
+						$thisPerson["Age"] = $targetAge - 25; break;
+					case "DAU":
+						$thisPerson["Age"] = $targetAge - 25; break;
+					case "NSIS":
+						$thisPerson["Age"] = $targetAge; break;
+					case "NBRO":
+						$thisPerson["Age"] = $targetAge; break; 
+					case "NMTH":
+						$thisPerson["Age"] = $targetAge + 25; break; 
+					case "NFTH":
+						$thisPerson["Age"] = $targetAge + 25; break;
+					case "MGRMTH":
+						$thisPerson["Age"] = $targetAge + 50; break;
+					case "MGRFTH":
+						$thisPerson["Age"] = $targetAge + 50; break; 
+					case "MGRMTH":
+						$thisPerson["Age"] = $targetAge + 50; break; 
+					case "PGRFTH":
+						$thisPerson["Age"] = $targetAge + 50; break; 
+					case "PGRMTH":
+						$thisPerson["Age"] = $targetAge + 50; break; 
+				}
+			}
+
 			## Impute age if unknown by using age at latest diagnosis
 			foreach($thisRow["conditions"] as $thisCondition) {
 				$ageAtCondition = (int)$thisCondition["age"]; // this could be 0 if age is unknown
 				
 				## BOADICEA Error, If condition age is less than diagnosis age
-				if($ageAtCondition && $thisPerson["Age"] < $ageAtCondition) {
+				## only impute if age is not zero
+				if($ageAtCondition && $thisPerson["Age"] < $ageAtCondition && $thisPerson["Age"] > 0) {
 					if($thisRow["relation"] == "SELF") {
 						## When this is the participant, move condition age down since age checked against R4
 						$ageAtCondition = $thisPerson["Age"]; 
@@ -901,37 +932,6 @@ class BoadiceaCanrisk extends AbstractExternalModule
 				
 				if($thisCondition["id"] == "pancreatic_cancer") {
 					$thisPerson["PAN"] = $ageAtCondition;
-				}
-			}
-
-			
-
-			## Impute age based on relationship if it is still missing after imputing using Yob and latest diagnosis age
-			## Only consider core relatives including parents, siblings, sons/daughters and grandparents.
-			if($thisRow["relation"] != "SELF" && $thisPerson["Age"] == 0 && ($thisRow['medicalHistory'] == 'healthy' || !empty($thisRow['conditions']))) {
-				switch($thisRow["relation"]){
-					case "SON": 
-						$thisPerson["Age"] = $targetAge - 25; break;
-					case "DAU":
-						$thisPerson["Age"] = $targetAge - 25; break;
-					case "NSIS":
-						$thisPerson["Age"] = $targetAge; break;
-					case "NBRO":
-						$thisPerson["Age"] = $targetAge; break; 
-					case "NMTH":
-						$thisPerson["Age"] = $targetAge + 25; break; 
-					case "NFTH":
-						$thisPerson["Age"] = $targetAge + 25; break;
-					case "MGRMTH":
-						$thisPerson["Age"] = $targetAge + 50; break;
-					case "MGRFTH":
-						$thisPerson["Age"] = $targetAge + 50; break; 
-					case "MGRMTH":
-						$thisPerson["Age"] = $targetAge + 50; break; 
-					case "PGRFTH":
-						$thisPerson["Age"] = $targetAge + 50; break; 
-					case "PGRMTH":
-						$thisPerson["Age"] = $targetAge + 50; break; 
 				}
 			}
 
